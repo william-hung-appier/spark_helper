@@ -16,7 +16,14 @@ This is a Chrome extension (Manifest v3) that helps generate Spark SQL queries f
    - All predefined fields use custom Spark UDFs: `CID2OID()`, `BYTES2STR()`, `NVL()`, `APPTYPE2NAME()`, `PARTNERID2STR()`, `OS2STR()`
    - The `channel` field has complex CASE logic: returns `bundle_id` for apps, `web_host` for web
 
-2. **Query Generation Flow** (`popup.js`)
+2. **Schema Parser System** (`schemaParser.js`, `defaultSchema.js`)
+   - Fetches field schema from the Appier Data Catalog webpage
+   - Parses HTML table to extract field names and types
+   - Falls back to default HTML template if user is not logged in
+   - Merges schema fields with customize fields from `FIELD_MAPPINGS`
+   - Dropdown displays fields as `<Field Name> | <Field Type>` or `<Field Name> | Customize`
+
+3. **Query Generation Flow** (`popup.js`)
    - Dynamic field/condition management with unique timestamp-based IDs
    - Timezone conversion: User's local timezone → UTC (YYYYMMDDHH format)
    - Table naming pattern: `{table}_{startYYYYMMDDHH}_{endYYYYMMDDHH}`
@@ -75,7 +82,7 @@ There are no npm/build/test scripts. All files are loaded directly by Chrome.
 
 ## Adding New Features
 
-### Add a new predefined field
+### Add a new predefined field (Customize field)
 
 1. Add to `FIELD_MAPPINGS` in `fieldMappings.js`:
 
@@ -86,7 +93,7 @@ There are no npm/build/test scripts. All files are loaded directly by Chrome.
    }
    ```
 
-2. Add `<option>` to field selector in `addSelectField()` (popup.js:26-36)
+2. The field will automatically appear in the "Customize Fields" group in the dropdown
 
 ### Add a new WHERE condition
 
@@ -106,3 +113,4 @@ There are no npm/build/test scripts. All files are loaded directly by Chrome.
 - **UTC output only**: All time ranges converted to UTC for Spark queries
 - **Manifest v3**: Uses modern Chrome extension APIs (no background scripts)
 - **Copy API**: Uses deprecated `document.execCommand('copy')` - consider updating to Clipboard API
+- **Schema Fetching**: Requires host permission for `data-catalog.dp.arepa.appier.info`; falls back to embedded HTML if fetch fails or user is not logged in

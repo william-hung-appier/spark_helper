@@ -1,7 +1,7 @@
 {
   "name": "Appier Spark Helper",
   "description": "Quickly generate SQL snippet for Spark queries",
-  "version": "1.0",
+  "version": "1.1.0",
   "manifest_version": 3,
   "action": {
     "default_popup": "popup.html",
@@ -9,5 +9,8 @@
   },
   "permissions": [
     "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://data-catalog.dp.arepa.appier.info/*"
   ]
 }

@@ -133,6 +133,7 @@ FIELD_MAPPINGS[field].sql + ' AS ' + FIELD_MAPPINGS[field].alias
 ### 2. **Mode-Based UI**
 
 Query type toggle changes UI behavior:
+
 - Standard mode: Multi-field, +Add button visible
 - Distinct mode: Single field only, +Add button hidden
 
@@ -149,6 +150,7 @@ removeBtn.addEventListener('click', () => {
 ### 4. **Timezone Conversion**
 
 User inputs local time → converted to UTC for Spark table naming:
+
 - Input: `2025-11-21-08` in UTC+8
 - Output: `2025112100` (table suffix)
 
