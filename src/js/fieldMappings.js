@@ -1,4 +1,3 @@
-// Field mappings for predefined Spark SQL fields
 const FIELD_MAPPINGS = {
   oid: {
     sql: 'CID2OID(cid)',
@@ -20,19 +19,19 @@ END`,
     alias: 'channel'
   },
   partner_id: {
-    sql: 'NVL(PARTNERID2STR(partner_id), \'\')',
+    sql: "NVL(PARTNERID2STR(partner_id), '')",
     alias: 'partner_id'
   },
   app_type: {
-    sql: 'NVL(APPTYPE2NAME(app_type), \'\')',
+    sql: "NVL(APPTYPE2NAME(app_type), '')",
     alias: 'app_type'
   },
   os: {
-    sql: 'NVL(OS2STR(os), \'\')',
+    sql: "NVL(OS2STR(os), '')",
     alias: 'os'
   },
   country: {
-    sql: 'NVL(impreq_country, \'\')',
+    sql: "NVL(impreq_country, '')",
     alias: 'country'
   }
 };

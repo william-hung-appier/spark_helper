@@ -1,5 +1,3 @@
-// Default fallback HTML for imp_join_all2 schema
-// This is used when the user is not logged in to the data catalog
 const DEFAULT_FALLBACK_HTML = `<html lang="en"><head>
 <meta charset="UTF-8">
 <title>Appier Data Catalog</title>

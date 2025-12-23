@@ -4,13 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Appier Spark Helper</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="src/css/styles.css">
 </head>
 <body>
   <div class="container">
     <h2>Spark Query Builder</h2>
 
-    <!-- Query Type Toggle -->
     <section class="section query-type-section">
       <label class="query-type-label">Query Type:</label>
       <label class="radio-label">
@@ -21,16 +20,12 @@
       </label>
     </section>
 
-    <!-- SELECT Section -->
     <section class="section">
       <h3 id="selectHeader">SELECT</h3>
-      <div id="selectFields" class="fields-container">
-        <!-- Dynamic field rows will be added here -->
-      </div>
+      <div id="selectFields" class="fields-container"></div>
       <button id="addFieldBtn" class="btn btn-secondary">+Add field</button>
     </section>
 
-    <!-- FROM Section -->
     <section class="section">
       <h3>FROM</h3>
       <div class="form-group">
@@ -77,31 +72,29 @@
       </div>
     </section>
 
-    <!-- WHERE Section -->
     <section class="section">
       <h3>WHERE</h3>
-      <div id="whereConditions" class="conditions-container">
-        <!-- Dynamic condition rows will be added here -->
-      </div>
+      <div id="whereConditions" class="conditions-container"></div>
       <button id="addConditionBtn" class="btn btn-secondary">+Add condition</button>
     </section>
 
-    <!-- Action Buttons -->
     <div class="actions">
       <button id="generateBtn" class="btn btn-primary">Generate Query</button>
       <button id="copyBtn" class="btn btn-secondary">Copy to Clipboard</button>
     </div>
 
-    <!-- Generated Query Output -->
     <section class="section">
       <h3>Generated Query</h3>
       <textarea id="queryOutput" class="query-output" readonly></textarea>
     </section>
   </div>
 
-  <script src="defaultSchema.js"></script>
-  <script src="fieldMappings.js"></script>
-  <script src="schemaParser.js"></script>
-  <script src="popup.js"></script>
+  <script src="src/js/defaultSchema.js"></script>
+  <script src="src/js/fieldMappings.js"></script>
+  <script src="src/js/state.js"></script>
+  <script src="src/js/schemaParser.js"></script>
+  <script src="src/js/queryBuilder.js"></script>
+  <script src="src/js/ui.js"></script>
+  <script src="src/js/app.js"></script>
 </body>
 </html>

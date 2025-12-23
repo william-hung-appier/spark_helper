@@ -116,6 +116,19 @@ h3 {
 .field-selector {
   flex: 1;
   min-width: 120px;
+  max-width: 220px;
+}
+
+.field-selector optgroup {
+  font-weight: 600;
+  color: #333;
+  background-color: #f0f0f0;
+}
+
+.field-selector option {
+  font-weight: normal;
+  color: #333;
+  padding: 4px 8px;
 }
 
 .as-label {
@@ -207,7 +220,6 @@ h3 {
   background-color: #f9f9f9;
 }
 
-/* Scrollbar styling */
 .container::-webkit-scrollbar {
   width: 8px;
 }
@@ -225,27 +237,9 @@ h3 {
   background: #555;
 }
 
-/* Loading state */
 .loading {
   padding: 20px;
   text-align: center;
   color: #777;
   font-style: italic;
-}
-
-/* Field selector dropdown */
-.field-selector {
-  max-width: 220px;
-}
-
-.field-selector optgroup {
-  font-weight: 600;
-  color: #333;
-  background-color: #f0f0f0;
-}
-
-.field-selector option {
-  font-weight: normal;
-  color: #333;
-  padding: 4px 8px;
 }
