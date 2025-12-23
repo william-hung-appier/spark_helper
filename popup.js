@@ -1,0 +1,267 @@
+// State management
+let selectFields = [];
+let whereConditions = [];
+
+// Initialize the popup
+document.addEventListener('DOMContentLoaded', () => {
+  // Add initial field
+  addSelectField();
+
+  // Setup event listeners
+  document.getElementById('addFieldBtn').addEventListener('click', addSelectField);
+  document.getElementById('addConditionBtn').addEventListener('click', addWhereCondition);
+  document.getElementById('generateBtn').addEventListener('click', generateQuery);
+  document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+
+  // Query type toggle
+  document.querySelectorAll('input[name="queryType"]').forEach(radio => {
+    radio.addEventListener('change', handleQueryTypeChange);
+  });
+});
+
+// Handle query type toggle
+function handleQueryTypeChange(e) {
+  const isDistinct = e.target.value === 'distinct';
+  const addFieldBtn = document.getElementById('addFieldBtn');
+  const selectHeader = document.getElementById('selectHeader');
+  const selectFields = document.getElementById('selectFields');
+
+  if (isDistinct) {
+    // Hide +Add button
+    addFieldBtn.style.display = 'none';
+    // Change header
+    selectHeader.textContent = 'SELECT DISTINCT';
+    // Keep only the first field row
+    const fieldRows = selectFields.querySelectorAll('.field-row');
+    fieldRows.forEach((row, index) => {
+      if (index > 0) {
+        row.remove();
+      }
+    });
+  } else {
+    // Show +Add button
+    addFieldBtn.style.display = '';
+    // Change header back
+    selectHeader.textContent = 'SELECT';
+  }
+}
+
+// Add a SELECT field row
+function addSelectField() {
+  const fieldId = Date.now();
+  const fieldRow = document.createElement('div');
+  fieldRow.className = 'field-row';
+  fieldRow.dataset.fieldId = fieldId;
+
+  fieldRow.innerHTML = `
+    <select class="field-selector input-field">
+      <option value="">-- Select Field --</option>
+      <option value="oid">oid</option>
+      <option value="cid">cid</option>
+      <option value="bidobjid">bidobjid</option>
+      <option value="channel">channel</option>
+      <option value="partner_id">partner_id</option>
+      <option value="app_type">app_type</option>
+      <option value="os">os</option>
+      <option value="country">country</option>
+      <option value="custom">custom</option>
+    </select>
+    <span class="as-label">AS</span>
+    <input type="text" class="field-alias input-field" placeholder="alias" />
+    <button class="btn-remove">×</button>
+  `;
+
+  document.getElementById('selectFields').appendChild(fieldRow);
+
+  // Add event listener for field selection
+  const selector = fieldRow.querySelector('.field-selector');
+  const aliasInput = fieldRow.querySelector('.field-alias');
+  const removeBtn = fieldRow.querySelector('.btn-remove');
+
+  selector.addEventListener('change', (e) => {
+    const selectedField = e.target.value;
+    if (selectedField && selectedField !== 'custom' && FIELD_MAPPINGS[selectedField]) {
+      aliasInput.value = FIELD_MAPPINGS[selectedField].alias;
+      aliasInput.disabled = selectedField !== 'custom';
+    } else {
+      aliasInput.disabled = false;
+      aliasInput.value = '';
+    }
+  });
+
+  removeBtn.addEventListener('click', () => {
+    fieldRow.remove();
+  });
+}
+
+// Add a WHERE condition row
+function addWhereCondition() {
+  const conditionId = Date.now();
+  const conditionRow = document.createElement('div');
+  conditionRow.className = 'condition-row';
+  conditionRow.dataset.conditionId = conditionId;
+
+  conditionRow.innerHTML = `
+    <select class="condition-type input-field">
+      <option value="">-- Select Condition --</option>
+      <option value="bid_win">Win Bid (RTB)</option>
+      <option value="bid_non_win">Non-Win Bid (RTB)</option>
+      <option value="custom">Custom</option>
+    </select>
+    <input type="text" class="condition-value input-field" placeholder="Custom SQL condition" style="display:none;" />
+    <button class="btn-remove">×</button>
+  `;
+
+  document.getElementById('whereConditions').appendChild(conditionRow);
+
+  // Add event listener for condition type selection
+  const typeSelector = conditionRow.querySelector('.condition-type');
+  const valueInput = conditionRow.querySelector('.condition-value');
+  const removeBtn = conditionRow.querySelector('.btn-remove');
+
+  typeSelector.addEventListener('change', (e) => {
+    if (e.target.value === 'custom') {
+      valueInput.style.display = 'inline-block';
+    } else {
+      valueInput.style.display = 'none';
+    }
+  });
+
+  removeBtn.addEventListener('click', () => {
+    conditionRow.remove();
+  });
+}
+
+// Parse YYYY-MM-DD-HH format (HH is optional, defaults to 00)
+function parseDateTimeInput(dateTimeStr) {
+  if (!dateTimeStr) return null;
+
+  const parts = dateTimeStr.split('-');
+  if (parts.length < 3 || parts.length > 4) return null;
+
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  const hour = parts.length === 4 ? parseInt(parts[3], 10) : 0;
+
+  if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour)) return null;
+
+  return { year, month, day, hour };
+}
+
+// Convert datetime from user timezone to UTC and format as YYYYMMDDHH
+function formatDateTimeWithTimezone(dateTimeStr, timezoneOffset) {
+  const parsed = parseDateTimeInput(dateTimeStr);
+  if (!parsed) return dateTimeStr;
+
+  const { year, month, day, hour } = parsed;
+  const offsetHours = parseInt(timezoneOffset, 10);
+
+  // Create UTC timestamp for the given local time in the specified timezone
+  // If user says "08:00 in UTC+8", that's 00:00 in UTC
+  // So we subtract the offset from the hour to get UTC
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hour - offsetHours));
+
+  // Format as YYYYMMDDHH
+  const utcYear = utcDate.getUTCFullYear();
+  const utcMonth = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+  const utcDay = String(utcDate.getUTCDate()).padStart(2, '0');
+  const utcHour = String(utcDate.getUTCHours()).padStart(2, '0');
+
+  return `${utcYear}${utcMonth}${utcDay}${utcHour}`;
+}
+
+// Generate the SQL query
+function generateQuery() {
+  const selectParts = [];
+  const whereParts = [];
+
+  // Build SELECT clause
+  const fieldRows = document.querySelectorAll('.field-row');
+  fieldRows.forEach(row => {
+    const fieldType = row.querySelector('.field-selector').value;
+    const alias = row.querySelector('.field-alias').value;
+
+    if (!fieldType) return;
+
+    if (fieldType === 'custom') {
+      if (alias) {
+        selectParts.push(`  ${alias}`);
+      }
+    } else if (FIELD_MAPPINGS[fieldType]) {
+      const mapping = FIELD_MAPPINGS[fieldType];
+      const sqlPart = mapping.sql;
+      const finalAlias = alias || mapping.alias;
+
+      if (sqlPart.includes('\n')) {
+        // Multi-line SQL (like channel)
+        selectParts.push(`  ${sqlPart} AS ${finalAlias}`);
+      } else {
+        selectParts.push(`  ${sqlPart} AS ${finalAlias}`);
+      }
+    }
+  });
+
+  // Build FROM clause
+  const tableName = document.getElementById('tableName').value || 'imp_join_all2';
+  const startTime = document.getElementById('startTime').value;
+  const endTime = document.getElementById('endTime').value;
+  const timezone = document.getElementById('timezone').value;
+
+  let fromClause = tableName;
+  if (startTime && endTime) {
+    const adjustedStart = formatDateTimeWithTimezone(startTime, timezone);
+    const adjustedEnd = formatDateTimeWithTimezone(endTime, timezone);
+    fromClause = `${tableName}_${adjustedStart}_${adjustedEnd}`;
+  }
+
+  // Build WHERE clause
+  const conditionRows = document.querySelectorAll('.condition-row');
+  conditionRows.forEach(row => {
+    const conditionType = row.querySelector('.condition-type').value;
+    const conditionValue = row.querySelector('.condition-value').value;
+
+    if (!conditionType) return;
+
+    if (conditionType === 'bid_win') {
+      whereParts.push('  is_external IS NULL AND win_time IS NOT NULL');
+    } else if (conditionType === 'bid_non_win') {
+      whereParts.push('  is_external IS NULL AND win_time IS NULL');
+    } else if (conditionType === 'custom' && conditionValue) {
+      whereParts.push(`  ${conditionValue}`);
+    }
+  });
+
+  // Check if DISTINCT mode is selected
+  const isDistinct = document.querySelector('input[name="queryType"]:checked').value === 'distinct';
+
+  // Assemble the final query
+  let query = isDistinct ? 'SELECT DISTINCT\n' : 'SELECT\n';
+  if (selectParts.length > 0) {
+    query += selectParts.join(',\n');
+  }
+  query += '\nFROM\n';
+  query += `  ${fromClause}`;
+
+  if (whereParts.length > 0) {
+    query += '\nWHERE\n';
+    query += whereParts.join('\n  AND ');
+  }
+
+  document.getElementById('queryOutput').value = query;
+}
+
+// Copy query to clipboard
+function copyToClipboard() {
+  const queryOutput = document.getElementById('queryOutput');
+  queryOutput.select();
+  document.execCommand('copy');
+
+  // Visual feedback
+  const copyBtn = document.getElementById('copyBtn');
+  const originalText = copyBtn.textContent;
+  copyBtn.textContent = 'Copied!';
+  setTimeout(() => {
+    copyBtn.textContent = originalText;
+  }, 2000);
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Appier Spark Helper",
+  "description": "Quickly generate SQL snippet for Spark queries",
+  "version": "1.0",
+  "manifest_version": 3,
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.svg"
+  },
+  "permissions": [
+    "clipboardWrite"
+  ]
+}

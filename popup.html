@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appier Spark Helper</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Spark Query Builder</h2>
+
+    <!-- Query Type Toggle -->
+    <section class="section query-type-section">
+      <label class="query-type-label">Query Type:</label>
+      <label class="radio-label">
+        <input type="radio" name="queryType" value="standard" checked /> Standard
+      </label>
+      <label class="radio-label">
+        <input type="radio" name="queryType" value="distinct" /> Distinct Values
+      </label>
+    </section>
+
+    <!-- SELECT Section -->
+    <section class="section">
+      <h3 id="selectHeader">SELECT</h3>
+      <div id="selectFields" class="fields-container">
+        <!-- Dynamic field rows will be added here -->
+      </div>
+      <button id="addFieldBtn" class="btn btn-secondary">+Add field</button>
+    </section>
+
+    <!-- FROM Section -->
+    <section class="section">
+      <h3>FROM</h3>
+      <div class="form-group">
+        <label>Table:</label>
+        <input type="text" id="tableName" value="imp_join_all2" class="input-field" />
+      </div>
+      <div class="form-group">
+        <label>Time:</label>
+        <input type="text" id="startTime" placeholder="YYYY-MM-DD-HH" class="input-field inline" />
+        <span>to</span>
+        <input type="text" id="endTime" placeholder="YYYY-MM-DD-HH" class="input-field inline" />
+      </div>
+      <div class="form-group">
+        <label>Timezone:</label>
+        <select id="timezone" class="input-field inline">
+          <option value="-12">UTC -12</option>
+          <option value="-11">UTC -11</option>
+          <option value="-10">UTC -10</option>
+          <option value="-9">UTC -9</option>
+          <option value="-8">UTC -8</option>
+          <option value="-7">UTC -7</option>
+          <option value="-6">UTC -6</option>
+          <option value="-5">UTC -5</option>
+          <option value="-4">UTC -4</option>
+          <option value="-3">UTC -3</option>
+          <option value="-2">UTC -2</option>
+          <option value="-1">UTC -1</option>
+          <option value="0" selected>UTC +0</option>
+          <option value="1">UTC +1</option>
+          <option value="2">UTC +2</option>
+          <option value="3">UTC +3</option>
+          <option value="4">UTC +4</option>
+          <option value="5">UTC +5</option>
+          <option value="6">UTC +6</option>
+          <option value="7">UTC +7</option>
+          <option value="8">UTC +8</option>
+          <option value="9">UTC +9</option>
+          <option value="10">UTC +10</option>
+          <option value="11">UTC +11</option>
+          <option value="12">UTC +12</option>
+          <option value="13">UTC +13</option>
+          <option value="14">UTC +14</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- WHERE Section -->
+    <section class="section">
+      <h3>WHERE</h3>
+      <div id="whereConditions" class="conditions-container">
+        <!-- Dynamic condition rows will be added here -->
+      </div>
+      <button id="addConditionBtn" class="btn btn-secondary">+Add condition</button>
+    </section>
+
+    <!-- Action Buttons -->
+    <div class="actions">
+      <button id="generateBtn" class="btn btn-primary">Generate Query</button>
+      <button id="copyBtn" class="btn btn-secondary">Copy to Clipboard</button>
+    </div>
+
+    <!-- Generated Query Output -->
+    <section class="section">
+      <h3>Generated Query</h3>
+      <textarea id="queryOutput" class="query-output" readonly></textarea>
+    </section>
+  </div>
+
+  <script src="fieldMappings.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
