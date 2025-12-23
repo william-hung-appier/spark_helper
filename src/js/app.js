@@ -3,6 +3,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   const queryBuilder = new QueryBuilder(FIELD_MAPPINGS, WHERE_CONDITIONS);
   const ui = new UIManager(appState, FIELD_MAPPINGS);
 
+  // Theme management
+  const initTheme = () => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+  };
+
+  const toggleTheme = () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+
+  initTheme();
+
+  const themeToggle = document.getElementById('themeToggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', toggleTheme);
+  }
+
   ui.init();
   ui.showLoading();
 
