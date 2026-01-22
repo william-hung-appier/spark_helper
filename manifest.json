@@ -1,11 +1,16 @@
 {
   "name": "Appier Spark Helper",
   "description": "Quickly generate SQL snippet for Spark queries with multi-table support",
-  "version": "2.0.0",
+  "version": "2.3.1",
   "manifest_version": 3,
   "action": {
-    "default_popup": "popup.html",
     "default_icon": "src/assets/icon.png"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "icons": {
     "16": "src/assets/icon.png",
@@ -13,5 +18,5 @@
     "48": "src/assets/icon.png",
     "128": "src/assets/icon.png"
   },
-  "permissions": ["clipboardWrite"]
+  "permissions": ["clipboardWrite", "sidePanel"]
 }

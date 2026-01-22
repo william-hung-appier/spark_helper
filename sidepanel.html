@@ -8,6 +8,13 @@
 </head>
 <body>
   <div class="container">
+    <!-- Restore Banner (hidden by default) -->
+    <div id="restoreBanner" class="restore-banner" style="display: none;">
+      <span class="restore-icon">&#8617;</span>
+      <span id="restoreText">Restored from 2 hours ago</span>
+      <button id="clearRestoreBtn" class="btn-restore-clear">Clear</button>
+    </div>
+
     <header class="header">
       <h2>Spark Query Builder</h2>
       <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
@@ -194,6 +201,18 @@
       </div>
       <textarea id="queryOutput" class="query-output" placeholder="Generated SQL will appear here..."></textarea>
     </section>
+
+    <!-- History Section -->
+    <section class="section history-section">
+      <div class="section-header history-header" id="historyToggle">
+        <h3>
+          <span class="history-toggle-icon">&#9660;</span>
+          History (<span id="historyCount">0</span>)
+        </h3>
+        <button id="clearHistoryBtn" class="btn-clear" title="Clear all history">Clear All</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </section>
   </div>
 
   <!-- Schema files (auto-generated) -->
@@ -213,6 +232,8 @@
   <!-- Core modules -->
   <script src="src/js/quickQueries.js"></script>
   <script src="src/js/snippetManager.js"></script>
+  <script src="src/js/historyManager.js"></script>
+  <script src="src/js/themeManager.js"></script>
   <script src="src/js/state.js"></script>
   <script src="src/js/schemaParser.js"></script>
   <script src="src/js/queryBuilder.js"></script>

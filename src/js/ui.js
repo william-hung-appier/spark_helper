@@ -842,4 +842,104 @@ class UIManager {
     this.attachConditionRowListeners(conditionRow);
   }
 
+  /**
+   * Load history configuration into the form
+   * @param {object} config - History config object
+   */
+  loadHistoryConfig(config) {
+    if (!config) return;
+
+    // Set table
+    if (this.tableAutocomplete && config.tableName) {
+      this.tableAutocomplete.setValue(config.tableName);
+      this.state.setSelectedTable(config.tableName);
+      this.updateSelectSectionState();
+    }
+
+    // Set time range
+    if (this.elements.startTime && config.timeStart) {
+      this.elements.startTime.value = config.timeStart;
+    }
+    if (this.elements.endTime && config.timeEnd) {
+      this.elements.endTime.value = config.timeEnd;
+    }
+    if (this.elements.timezone && config.timezone) {
+      this.elements.timezone.value = config.timezone;
+    }
+
+    // Clear and reload field rows
+    this.fieldAutocompletes.forEach(ac => ac.destroy());
+    this.fieldAutocompletes.clear();
+    if (this.elements.selectFields) {
+      this.elements.selectFields.innerHTML = '';
+    }
+
+    if (config.fieldRows && config.fieldRows.length > 0) {
+      config.fieldRows.forEach(fieldData => {
+        this.addFieldRowWithData(fieldData);
+      });
+    } else if (this.elements.selectFields) {
+      // Add one empty field row if no fields
+      this.addFieldRow({ autoFocus: false });
+    }
+
+    // Clear and reload condition rows
+    this.conditionFieldAutocompletes.forEach(ac => ac.destroy());
+    this.conditionFieldAutocompletes.clear();
+    if (this.elements.whereConditions) {
+      this.elements.whereConditions.innerHTML = '';
+    }
+
+    if (config.conditionRows && config.conditionRows.length > 0) {
+      config.conditionRows.forEach(conditionData => {
+        this.addConditionRowWithData(conditionData);
+      });
+    }
+  }
+
+  /**
+   * Reset the form to its default empty state
+   */
+  resetForm() {
+    // Clear table selection
+    if (this.tableAutocomplete) {
+      this.tableAutocomplete.setValue('');
+    }
+    this.state.setSelectedTable('');
+    this.updateSelectSectionState();
+
+    // Clear time inputs
+    if (this.elements.startTime) {
+      this.elements.startTime.value = '';
+    }
+    if (this.elements.endTime) {
+      this.elements.endTime.value = '';
+    }
+    if (this.elements.timezone) {
+      this.elements.timezone.value = '0';
+    }
+
+    // Clear field rows
+    this.fieldAutocompletes.forEach(ac => ac.destroy());
+    this.fieldAutocompletes.clear();
+    if (this.elements.selectFields) {
+      this.elements.selectFields.innerHTML = '';
+    }
+
+    // Clear condition rows
+    this.conditionFieldAutocompletes.forEach(ac => ac.destroy());
+    this.conditionFieldAutocompletes.clear();
+    if (this.elements.whereConditions) {
+      this.elements.whereConditions.innerHTML = '';
+    }
+
+    // Clear query output
+    if (this.elements.queryOutput) {
+      this.elements.queryOutput.value = '';
+    }
+
+    // Hide error messages
+    this.hideTimeError();
+  }
+
 }

@@ -45,30 +45,219 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelector('.section:has(#whereConditions)')  // WHERE section
   ].filter(Boolean);
 
-  // Theme management
-  const initTheme = () => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    }
-  };
-
-  const toggleTheme = () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-  };
-
-  initTheme();
+  // Theme management - use ThemeManager for system preference support
+  themeManager.init();
 
   const themeToggle = document.getElementById('themeToggle');
   if (themeToggle) {
-    themeToggle.addEventListener('click', toggleTheme);
+    themeToggle.addEventListener('click', () => themeManager.toggle());
   }
 
-  // Initialize UI
+  // History management
+  const historyList = document.getElementById('historyList');
+  const historyCount = document.getElementById('historyCount');
+  const historyToggle = document.getElementById('historyToggle');
+  const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+  const restoreBanner = document.getElementById('restoreBanner');
+  const restoreText = document.getElementById('restoreText');
+  const clearRestoreBtn = document.getElementById('clearRestoreBtn');
+
+  let historyExpanded = true;
+
+  /**
+   * Render the history list UI
+   */
+  const renderHistoryList = () => {
+    const entries = historyManager.getAll();
+    historyCount.textContent = entries.length;
+
+    if (entries.length === 0) {
+      historyList.innerHTML = '<div class="history-empty">No query history yet</div>';
+      return;
+    }
+
+    historyList.innerHTML = entries.map(entry => `
+      <div class="history-item" data-id="${entry.id}">
+        <div class="history-item-info">
+          <span class="history-item-table">${entry.config.tableName || 'Unknown'}</span>
+          <span class="history-item-time">${historyManager.getRelativeTime(entry.createdAt)}</span>
+        </div>
+        <div class="history-item-actions">
+          <button class="btn-history-load" data-id="${entry.id}" title="Load this query">Load</button>
+          <button class="btn-history-copy" data-id="${entry.id}" title="Copy SQL">Copy</button>
+        </div>
+      </div>
+    `).join('');
+
+    // Attach event listeners to history items
+    historyList.querySelectorAll('.btn-history-load').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.dataset.id;
+        loadHistoryEntry(id);
+      });
+    });
+
+    historyList.querySelectorAll('.btn-history-copy').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.target.dataset.id;
+        const entry = historyManager.getById(id);
+        if (entry && entry.generatedSql) {
+          try {
+            await navigator.clipboard.writeText(entry.generatedSql);
+            e.target.textContent = 'Copied!';
+            setTimeout(() => { e.target.textContent = 'Copy'; }, 1500);
+          } catch (err) {
+            console.error('Failed to copy:', err);
+          }
+        }
+      });
+    });
+  };
+
+  /**
+   * Load a history entry into the form
+   * @param {string} id - History entry ID
+   */
+  const loadHistoryEntry = (id) => {
+    const entry = historyManager.getById(id);
+    if (!entry) return;
+
+    const config = entry.config;
+
+    // Set query type
+    const queryTypeRadio = document.querySelector(`input[name="queryType"][value="${config.queryType || 'standard'}"]`);
+    if (queryTypeRadio) {
+      queryTypeRadio.checked = true;
+      queryTypeRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // Load the configuration into UI
+    ui.loadHistoryConfig(config);
+
+    // Set the generated SQL in output
+    if (entry.generatedSql) {
+      ui.setQueryOutput(entry.generatedSql);
+    }
+  };
+
+  /**
+   * Auto-restore last query if within 24 hours
+   */
+  const autoRestore = () => {
+    const restorable = historyManager.getRestorable();
+    if (!restorable) return;
+
+    // Load the config
+    loadHistoryEntry(restorable.id);
+
+    // Show restore banner
+    if (restoreBanner && restoreText) {
+      restoreText.textContent = `Restored from ${historyManager.getRelativeTime(restorable.createdAt)}`;
+      restoreBanner.style.display = 'flex';
+
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        restoreBanner.style.display = 'none';
+      }, 5000);
+    }
+  };
+
+  /**
+   * Clear the form and hide restore banner
+   */
+  const clearRestore = () => {
+    // Reset form to default state
+    ui.resetForm();
+    restoreBanner.style.display = 'none';
+  };
+
+  // History toggle (expand/collapse)
+  if (historyToggle) {
+    historyToggle.addEventListener('click', () => {
+      historyExpanded = !historyExpanded;
+      historyList.style.display = historyExpanded ? 'block' : 'none';
+      const icon = historyToggle.querySelector('.history-toggle-icon');
+      if (icon) {
+        icon.textContent = historyExpanded ? '\u25BC' : '\u25B6';
+      }
+    });
+  }
+
+  // Clear all history
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm('Clear all query history?')) {
+        historyManager.clear();
+        renderHistoryList();
+      }
+    });
+  }
+
+  // Clear restore banner
+  if (clearRestoreBtn) {
+    clearRestoreBtn.addEventListener('click', clearRestore);
+  }
+
+  // Initialize UI (must be before history operations)
   ui.init();
+
+  // Render history on load
+  renderHistoryList();
+
+  // Auto-restore last query
+  autoRestore();
+
+  // Time validation on blur (when leaving FROM clause inputs)
+  const validateTimeOnBlur = () => {
+    const startTime = ui.elements.startTime.value;
+    const endTime = ui.elements.endTime.value;
+
+    // Only validate if both fields have values
+    if (!startTime && !endTime) {
+      ui.hideTimeError();
+      return;
+    }
+
+    // Validate if at least one field has a value
+    if (startTime || endTime) {
+      const validation = queryBuilder.validateTimeRange(startTime, endTime);
+      if (!validation.valid) {
+        ui.showTimeError(validation.error);
+      } else {
+        ui.hideTimeError();
+      }
+    }
+  };
+
+  ui.elements.startTime.addEventListener('blur', validateTimeOnBlur);
+  ui.elements.endTime.addEventListener('blur', validateTimeOnBlur);
+
+  // Time validation on blur for Quick Query mode
+  const validateQuickTimeOnBlur = () => {
+    const startTime = quickStartTime.value;
+    const endTime = quickEndTime.value;
+
+    // Only validate if both fields have values
+    if (!startTime && !endTime) {
+      quickTimeError.style.display = 'none';
+      return;
+    }
+
+    // Validate if at least one field has a value
+    if (startTime || endTime) {
+      const validation = queryBuilder.validateTimeRange(startTime, endTime);
+      if (!validation.valid) {
+        quickTimeError.textContent = validation.error;
+        quickTimeError.style.display = 'block';
+      } else {
+        quickTimeError.style.display = 'none';
+      }
+    }
+  };
+
+  quickStartTime.addEventListener('blur', validateQuickTimeOnBlur);
+  quickEndTime.addEventListener('blur', validateQuickTimeOnBlur);
 
   /**
    * Toggle between standard and quick access modes
@@ -136,6 +325,16 @@ document.addEventListener('DOMContentLoaded', () => {
           timezone
         });
         ui.setQueryOutput(query);
+
+        // Save to history
+        historyManager.save({
+          queryType: 'quick',
+          tableName: queryKey,
+          timeStart: startTime,
+          timeEnd: endTime,
+          timezone
+        }, query);
+        renderHistoryList();
       } else if (activeTab === 'snippets') {
         // Snippet Mode
         if (!selectedSnippet) {
@@ -155,6 +354,18 @@ document.addEventListener('DOMContentLoaded', () => {
           isDistinct: selectedSnippet.queryType === 'distinct'
         });
         ui.setQueryOutput(query);
+
+        // Save to history
+        historyManager.save({
+          queryType: selectedSnippet.queryType,
+          tableName: selectedSnippet.tableName,
+          fieldRows: selectedSnippet.fieldRows,
+          conditionRows: selectedSnippet.conditionRows,
+          timeStart: startTime,
+          timeEnd: endTime,
+          timezone
+        }, query);
+        renderHistoryList();
       }
     } else {
       // Standard/Distinct Mode
@@ -175,9 +386,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Standard query generation
+      const fieldRows = ui.getFieldRowsData();
+      const conditionRows = ui.getConditionRowsData();
       const query = queryBuilder.generate({
-        fieldRows: ui.getFieldRowsData(),
-        conditionRows: ui.getConditionRowsData(),
+        fieldRows,
+        conditionRows,
         tableName: fromData.tableName,
         startTime: fromData.startTime,
         endTime: fromData.endTime,
@@ -185,6 +398,18 @@ document.addEventListener('DOMContentLoaded', () => {
         isDistinct: appState.isDistinctMode()
       });
       ui.setQueryOutput(query);
+
+      // Save to history
+      historyManager.save({
+        queryType: appState.queryType,
+        tableName: fromData.tableName,
+        fieldRows,
+        conditionRows,
+        timeStart: fromData.startTime,
+        timeEnd: fromData.endTime,
+        timezone: fromData.timezone
+      }, query);
+      renderHistoryList();
     }
   });
 
