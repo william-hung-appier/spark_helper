@@ -759,3 +759,44 @@ select.input-field:hover {
 .btn:disabled:hover {
   transform: none;
 }
+
+/* ============================================
+   Quick Query Section
+   ============================================ */
+
+.quick-query-section {
+  background: linear-gradient(135deg, var(--color-accent-light), var(--color-primary-light));
+  border-color: var(--color-accent);
+}
+
+.quick-query-section h3 {
+  color: var(--color-primary);
+}
+
+.quick-query-section .form-group {
+  flex-wrap: wrap;
+}
+
+.quick-query-section .form-group label {
+  width: 70px;
+}
+
+/* Make Template dropdown span full width like Timezone */
+.quick-query-section .form-group select:not(.inline) {
+  flex: 1;
+}
+
+/* ============================================
+   Error Message
+   ============================================ */
+
+.error-message {
+  color: var(--color-danger);
+  font-size: 12px;
+  margin-top: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background-color: rgba(239, 68, 68, 0.08);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  flex-basis: 100%;
+}

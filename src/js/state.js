@@ -7,6 +7,7 @@ class AppState {
     this.selectedTable = '';
     this.queryType = 'standard';
     this.schemaParser = null;
+    this.quickQuery = null;
   }
 
   /**
@@ -68,6 +69,29 @@ class AppState {
    */
   isDistinctMode() {
     return this.queryType === 'distinct';
+  }
+
+  /**
+   * Set the selected quick query
+   * @param {string|null} key - Quick query key or null to clear
+   */
+  setQuickQuery(key) {
+    this.quickQuery = key;
+  }
+
+  /**
+   * Get the currently selected quick query
+   * @returns {string|null} Quick query key or null
+   */
+  getQuickQuery() {
+    return this.quickQuery;
+  }
+
+  /**
+   * Clear the selected quick query
+   */
+  clearQuickQuery() {
+    this.quickQuery = null;
   }
 
   /**

@@ -161,4 +161,52 @@ class QueryBuilder {
 
     return query;
   }
+
+  /**
+   * Generate a quick query from predefined template
+   * @param {string} queryKey - Quick query key
+   * @param {object} options - Query options (startTime, endTime, timezone)
+   * @returns {string} Generated SQL query
+   */
+  generateQuickQuery(queryKey, options) {
+    const config = QUICK_QUERIES[queryKey];
+    if (!config) {
+      console.error(`Quick query configuration not found: ${queryKey}`);
+      return '-- Error: Quick query configuration not found';
+    }
+
+    return this.generateUnionDistinct({
+      tables: config.tables,
+      outputAlias: config.outputAlias,
+      startTime: options.startTime,
+      endTime: options.endTime,
+      timezone: options.timezone
+    });
+  }
+
+  /**
+   * Generate UNION ALL query for DISTINCT values across multiple tables
+   * @param {object} options - Generation options
+   * @param {Array} options.tables - Array of {name, field} objects
+   * @param {string} options.outputAlias - Unified column name in output
+   * @param {string} options.startTime - Start time
+   * @param {string} options.endTime - End time
+   * @param {string} options.timezone - Timezone offset
+   * @returns {string} Generated UNION ALL query
+   */
+  generateUnionDistinct(options) {
+    const { tables, outputAlias, startTime, endTime, timezone } = options;
+
+    const queries = tables.map(({ name, field }) => {
+      const tableWithTime = this.buildFromClause(name, startTime, endTime, timezone);
+      return `SELECT '${name}' AS table_name, ${field} AS ${outputAlias}
+FROM ${tableWithTime}`;
+    });
+
+    return `SELECT DISTINCT table_name, ${outputAlias}
+FROM (
+${queries.join('\nUNION ALL\n')}
+)
+ORDER BY table_name, ${outputAlias}`;
+  }
 }

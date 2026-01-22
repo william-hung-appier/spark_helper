@@ -38,7 +38,8 @@ class UIManager {
       startTime: document.getElementById('startTime'),
       endTime: document.getElementById('endTime'),
       timezone: document.getElementById('timezone'),
-      queryOutput: document.getElementById('queryOutput')
+      queryOutput: document.getElementById('queryOutput'),
+      timeError: document.getElementById('timeError')
     };
   }
 
@@ -83,6 +84,9 @@ class UIManager {
     this.updateSelectSectionState();
     this.rebuildAllFieldAutocompletes();
     this.rebuildConditionOptions();
+
+    // Focus time input after table selection
+    this.elements.startTime.focus();
   }
 
   /**
@@ -133,8 +137,8 @@ class UIManager {
     this.fieldAutocompletes.clear();
     this.elements.selectFields.innerHTML = '';
 
-    // Add one field row to start
-    this.addFieldRow();
+    // Add one field row to start (skip auto-focus since we focus time input)
+    this.addFieldRow({ autoFocus: false });
   }
 
   /**
@@ -147,8 +151,11 @@ class UIManager {
 
   /**
    * Add a new field row with autocomplete
+   * @param {object} options - Options for field row creation
+   * @param {boolean} options.autoFocus - Whether to auto-focus the new field (default: true)
    */
-  addFieldRow() {
+  addFieldRow(options = {}) {
+    const { autoFocus = true } = options;
     const fieldId = Date.now().toString();
     const fieldRow = document.createElement('div');
     fieldRow.className = 'field-row';
@@ -204,8 +211,10 @@ class UIManager {
 
     this.fieldAutocompletes.set(fieldId, autocomplete);
 
-    // Focus the new autocomplete
-    autocomplete.focus();
+    // Focus the new autocomplete if autoFocus is enabled
+    if (autoFocus) {
+      autocomplete.focus();
+    }
   }
 
   /**
@@ -394,4 +403,25 @@ class UIManager {
       this.elements.copyBtn.textContent = originalText;
     }, 2000);
   }
+
+  /**
+   * Show time validation error
+   * @param {string} message - Error message
+   */
+  showTimeError(message) {
+    if (this.elements.timeError) {
+      this.elements.timeError.textContent = message;
+      this.elements.timeError.style.display = 'block';
+    }
+  }
+
+  /**
+   * Hide time validation error
+   */
+  hideTimeError() {
+    if (this.elements.timeError) {
+      this.elements.timeError.style.display = 'none';
+    }
+  }
+
 }

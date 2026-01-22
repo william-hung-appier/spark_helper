@@ -34,6 +34,7 @@ spark_helper/
 │   │   ├── ui.js           # UIManager class for DOM operations
 │   │   ├── schemaParser.js # SchemaParser class for bundled schemas
 │   │   ├── autocomplete.js # Autocomplete component
+│   │   ├── quickQueries.js # Quick Query templates configuration
 │   │   ├── schemas/        # Auto-generated schema JS files
 │   │   │   ├── index.js
 │   │   │   ├── imp_join_all2.js
@@ -61,7 +62,7 @@ spark_helper/
 
 1. **AppState** (`src/js/state.js`)
    - Centralized state management
-   - Stores selected table and query type
+   - Stores selected table and query type (standard/distinct/quick)
    - Provides access to schema and mapping data via SchemaParser
 
 2. **SchemaParser** (`src/js/schemaParser.js`)
@@ -74,11 +75,13 @@ spark_helper/
    - Timezone conversion (local → UTC)
    - Automatic BYTES2STR wrapping for binary fields
    - Builds SELECT, FROM, and WHERE clauses
+   - Generates UNION ALL queries for Quick Query mode
 
 4. **UIManager** (`src/js/ui.js`)
    - DOM manipulation and event handling
    - Manages Autocomplete instances for table and field selection
    - Field/condition row creation and management
+   - Time validation and error display
 
 5. **Autocomplete** (`src/js/autocomplete.js`)
    - Reusable autocomplete/combobox component
@@ -91,6 +94,21 @@ spark_helper/
    - Per-table WHERE condition templates
    - Uses Spark UDFs: `CID2OID()`, `BYTES2STR()`, `NVL()`, etc.
 
+7. **Quick Queries** (`src/js/quickQueries.js`)
+   - Predefined query templates for common use cases
+   - Supports multi-table UNION ALL queries
+   - Handles field name normalization across tables
+
+### Query Modes
+
+The extension supports three query modes:
+
+| Mode | Description |
+|------|-------------|
+| **Standard** | Build custom SELECT queries with multiple field selection |
+| **Distinct** | Build SELECT DISTINCT queries with single field |
+| **Quick Query** | Use predefined query templates (simplified UI) |
+
 ### Data Flow
 
 ```text
@@ -98,16 +116,21 @@ popup.html (UI)
     ↓
 app.js (Initialization)
     ├─ SchemaParser ← src/js/schemas/ (bundled data)
-    └─ AppState (connects parser)
+    ├─ AppState (connects parser)
+    └─ QUICK_QUERIES ← src/js/quickQueries.js
     ↓
 UIManager
+    ├─ Query Type Toggle → Show/Hide sections
     ├─ Table Autocomplete → AppState.setSelectedTable()
     └─ Field Autocomplete → AppState.filterFields()
     ↓
 QueryBuilder (on Generate)
-    ├─ buildSelectPart() → auto-wrap binary fields
-    ├─ buildWherePart() → table-specific conditions
-    └─ buildFromClause() → UTC time conversion
+    ├─ Standard/Distinct Mode:
+    │   ├─ buildSelectPart() → auto-wrap binary fields
+    │   ├─ buildWherePart() → table-specific conditions
+    │   └─ buildFromClause() → UTC time conversion
+    └─ Quick Query Mode:
+        └─ generateQuickQuery() → UNION ALL queries
     ↓
 queryOutput textarea
 ```
@@ -182,6 +205,36 @@ const IMP_JOIN_ALL2_MAPPINGS = {
 };
 ```
 
+### Add a new Quick Query template
+
+Add to `src/js/quickQueries.js`:
+
+```javascript
+const QUICK_QUERIES = {
+  // Existing templates...
+
+  my_new_query: {
+    label: 'My New Query',
+    tables: [
+      { name: 'table1', field: 'field1' },
+      { name: 'table2', field: 'field2' }
+    ],
+    outputAlias: 'unified_field_name',
+    requiresTimeRange: true
+  }
+};
+```
+
+Then add the option to `popup.html` in the Quick Query section:
+
+```html
+<select id="quickQuerySelect" class="input-field">
+  <option value="">-- Select Query --</option>
+  <option value="distinct_type_all">DISTINCT type (all creative tables)</option>
+  <option value="my_new_query">My New Query</option>
+</select>
+```
+
 ### Add a new supported table
 
 1. Add YAML schema to `schemas/spark/{table_name}.yaml`
@@ -204,6 +257,7 @@ Add `<option>` to timezone select in `popup.html`. The `QueryBuilder.formatDateT
 - **Bundled schemas**: No network fetching; schemas are bundled at build time
 - **Binary auto-wrap**: Binary fields automatically wrapped with `BYTES2STR()`
 - **Editable output**: Users can modify generated SQL directly in the output textarea
+- **Time validation**: All modes require time interval before query generation
 
 ## Schema Generation
 
