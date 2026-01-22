@@ -323,6 +323,46 @@ h3 {
   flex: 2;
 }
 
+/* WHERE Buttons */
+.where-buttons {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.where-buttons .btn {
+  flex: 1;
+}
+
+/* Field Condition Row */
+.field-condition-row {
+  flex-wrap: wrap;
+}
+
+.field-condition-autocomplete-container {
+  position: relative;
+  flex: 1;
+  min-width: 120px;
+  max-width: 180px;
+}
+
+.condition-operator {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.condition-field-value {
+  flex: 1;
+  min-width: 100px;
+}
+
+.condition-multi-value {
+  flex: 1;
+  min-width: 150px;
+  resize: vertical;
+  font-family: var(--font-sans);
+  line-height: 1.4;
+}
+
 /* Buttons */
 .btn {
   padding: var(--space-sm) var(--space-lg);
@@ -403,13 +443,19 @@ h3 {
 /* Actions */
 .actions {
   display: flex;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
 }
 
 .actions .btn {
   flex: 1;
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  min-width: 100px;
+}
+
+.actions .btn-primary {
+  flex: 1.5;
 }
 
 /* Section Header with Actions */
@@ -761,29 +807,116 @@ select.input-field:hover {
 }
 
 /* ============================================
-   Quick Query Section
+   Quick Access Section (formerly Quick Query)
    ============================================ */
 
-.quick-query-section {
+.quick-access-section {
   background: linear-gradient(135deg, var(--color-accent-light), var(--color-primary-light));
   border-color: var(--color-accent);
 }
 
-.quick-query-section h3 {
+.quick-access-section h3 {
   color: var(--color-primary);
 }
 
-.quick-query-section .form-group {
+.quick-access-section .form-group {
   flex-wrap: wrap;
 }
 
-.quick-query-section .form-group label {
+.quick-access-section .form-group label {
   width: 70px;
 }
 
-/* Make Template dropdown span full width like Timezone */
-.quick-query-section .form-group select:not(.inline) {
+/* Make Template/Snippet dropdown span full width */
+.quick-access-section .form-group select:not(.inline) {
   flex: 1;
+}
+
+/* Quick Access Tabs */
+.quick-access-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+  padding: var(--space-xs);
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background-color: transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab-btn:hover {
+  color: var(--color-text-primary);
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.tab-btn.active {
+  color: var(--color-primary);
+  background-color: var(--color-bg-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Tab Content */
+.tab-content {
+  margin-bottom: var(--space-md);
+}
+
+/* Snippet Preview */
+.snippet-preview {
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+/* Snippet Actions */
+.snippet-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.btn-snippet-action {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-snippet-action:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+  background-color: var(--color-bg-tertiary);
+}
+
+.btn-snippet-delete:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  background-color: rgba(239, 68, 68, 0.05);
 }
 
 /* ============================================

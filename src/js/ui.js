@@ -8,6 +8,7 @@ class UIManager {
     this.elements = {};
     this.tableAutocomplete = null;
     this.fieldAutocompletes = new Map(); // Map of fieldId -> Autocomplete instance
+    this.conditionFieldAutocompletes = new Map(); // Map of conditionId -> Autocomplete instance for field conditions
   }
 
   /**
@@ -30,16 +31,24 @@ class UIManager {
       selectMessage: document.getElementById('selectMessage'),
       whereConditions: document.getElementById('whereConditions'),
       addFieldBtn: document.getElementById('addFieldBtn'),
+      addFieldConditionBtn: document.getElementById('addFieldConditionBtn'),
       addConditionBtn: document.getElementById('addConditionBtn'),
       generateBtn: document.getElementById('generateBtn'),
       copyBtn: document.getElementById('copyBtn'),
       clearBtn: document.getElementById('clearBtn'),
+      saveSnippetBtn: document.getElementById('saveSnippetBtn'),
       selectHeader: document.getElementById('selectHeader'),
       startTime: document.getElementById('startTime'),
       endTime: document.getElementById('endTime'),
       timezone: document.getElementById('timezone'),
       queryOutput: document.getElementById('queryOutput'),
-      timeError: document.getElementById('timeError')
+      timeError: document.getElementById('timeError'),
+      // Snippet-related elements
+      snippetSelect: document.getElementById('snippetSelect'),
+      snippetPreview: document.getElementById('snippetPreview'),
+      snippetActions: document.getElementById('snippetActions'),
+      renameSnippetBtn: document.getElementById('renameSnippetBtn'),
+      deleteSnippetBtn: document.getElementById('deleteSnippetBtn')
     };
   }
 
@@ -291,6 +300,96 @@ class UIManager {
   }
 
   /**
+   * Add a new field-based WHERE condition row
+   */
+  addFieldConditionRow() {
+    const conditionId = Date.now().toString();
+    const conditionRow = document.createElement('div');
+    conditionRow.className = 'condition-row field-condition-row';
+    conditionRow.dataset.conditionId = conditionId;
+    conditionRow.dataset.conditionType = 'field';
+
+    // Create field autocomplete container
+    const fieldContainer = document.createElement('div');
+    fieldContainer.className = 'field-condition-autocomplete-container';
+
+    // Create operator select
+    const operatorSelect = document.createElement('select');
+    operatorSelect.className = 'condition-operator input-field';
+    operatorSelect.innerHTML = `
+      <option value="=">=</option>
+      <option value="IN">IN</option>
+      <option value="NOT IN">NOT IN</option>
+    `;
+
+    // Create value input (single line for =, multi-line for IN/NOT IN)
+    const valueInput = document.createElement('input');
+    valueInput.type = 'text';
+    valueInput.className = 'condition-field-value input-field';
+    valueInput.placeholder = 'Value';
+
+    // Create multi-value textarea (hidden by default)
+    const multiValueInput = document.createElement('textarea');
+    multiValueInput.className = 'condition-multi-value input-field';
+    multiValueInput.placeholder = 'One value per line';
+    multiValueInput.style.display = 'none';
+    multiValueInput.rows = 3;
+
+    // Create remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove';
+    removeBtn.textContent = '\u00d7';
+
+    // Assemble row
+    conditionRow.appendChild(fieldContainer);
+    conditionRow.appendChild(operatorSelect);
+    conditionRow.appendChild(valueInput);
+    conditionRow.appendChild(multiValueInput);
+    conditionRow.appendChild(removeBtn);
+
+    this.elements.whereConditions.appendChild(conditionRow);
+
+    // Create autocomplete for field selection
+    const isKnownTable = this.state.isKnownTable();
+    const autocomplete = new Autocomplete({
+      container: fieldContainer,
+      getItems: () => this.state.getFieldAutocompleteItems(),
+      filterItems: (query) => this.state.filterFields(query),
+      onSelect: (item) => {
+        // Store field info on the row for later use
+        conditionRow.dataset.fieldName = item.value;
+        conditionRow.dataset.isBinary = item.isBinary || false;
+      },
+      placeholder: isKnownTable ? 'Select field...' : 'Enter field...',
+      emptyMessage: isKnownTable ? 'No matching fields' : 'Type field name',
+      allowCustom: true,
+      debounceMs: 250
+    });
+
+    this.conditionFieldAutocompletes.set(conditionId, autocomplete);
+
+    // Handle operator change
+    operatorSelect.addEventListener('change', (e) => {
+      const isMultiValue = e.target.value === 'IN' || e.target.value === 'NOT IN';
+      valueInput.style.display = isMultiValue ? 'none' : 'inline-block';
+      multiValueInput.style.display = isMultiValue ? 'block' : 'none';
+    });
+
+    // Handle remove
+    removeBtn.addEventListener('click', () => {
+      const ac = this.conditionFieldAutocompletes.get(conditionId);
+      if (ac) {
+        ac.destroy();
+        this.conditionFieldAutocompletes.delete(conditionId);
+      }
+      conditionRow.remove();
+    });
+
+    // Focus the field autocomplete
+    autocomplete.focus();
+  }
+
+  /**
    * Handle query type change (standard/distinct)
    * @param {boolean} isDistinct - Whether distinct mode is enabled
    */
@@ -341,15 +440,44 @@ class UIManager {
   }
 
   /**
-   * Get data from all condition rows
+   * Get data from all condition rows (both field conditions and template conditions)
    * @returns {Array} Array of condition row data
    */
   getConditionRowsData() {
     const conditionRows = this.elements.whereConditions.querySelectorAll('.condition-row');
-    return Array.from(conditionRows).map(row => ({
-      conditionType: row.querySelector('.condition-type').value,
-      customValue: row.querySelector('.condition-value').value
-    }));
+    return Array.from(conditionRows).map(row => {
+      const isFieldCondition = row.dataset.conditionType === 'field';
+
+      if (isFieldCondition) {
+        const conditionId = row.dataset.conditionId;
+        const autocomplete = this.conditionFieldAutocompletes.get(conditionId);
+        const selectedItem = autocomplete ? autocomplete.getSelectedItem() : null;
+        const inputValue = autocomplete ? autocomplete.getValue() : '';
+
+        const operatorSelect = row.querySelector('.condition-operator');
+        const valueInput = row.querySelector('.condition-field-value');
+        const multiValueInput = row.querySelector('.condition-multi-value');
+
+        const operator = operatorSelect.value;
+        const isMultiValue = operator === 'IN' || operator === 'NOT IN';
+
+        return {
+          type: 'field',
+          fieldName: selectedItem ? selectedItem.value : inputValue,
+          isBinary: selectedItem ? selectedItem.isBinary : this.state.isBinaryField(inputValue),
+          operator: operator,
+          value: isMultiValue ? null : valueInput.value,
+          values: isMultiValue ? multiValueInput.value.split('\n').filter(v => v.trim()) : null
+        };
+      } else {
+        // Template condition (existing behavior)
+        return {
+          type: 'template',
+          conditionType: row.querySelector('.condition-type').value,
+          customValue: row.querySelector('.condition-value').value
+        };
+      }
+    });
   }
 
   /**
@@ -422,6 +550,296 @@ class UIManager {
     if (this.elements.timeError) {
       this.elements.timeError.style.display = 'none';
     }
+  }
+
+  /**
+   * Refresh the snippet dropdown with current snippets
+   */
+  refreshSnippetDropdown() {
+    if (!this.elements.snippetSelect) return;
+
+    const snippets = snippetManager.getAll();
+    let html = '<option value="">-- Select Snippet --</option>';
+
+    snippets.forEach(snippet => {
+      html += `<option value="${snippet.id}">${snippet.name}</option>`;
+    });
+
+    this.elements.snippetSelect.innerHTML = html;
+  }
+
+  /**
+   * Show snippet preview
+   * @param {object} snippet - Snippet object
+   */
+  showSnippetPreview(snippet) {
+    if (!this.elements.snippetPreview) return;
+
+    if (snippet) {
+      this.elements.snippetPreview.textContent = snippet.preview || '';
+      this.elements.snippetPreview.style.display = 'block';
+      if (this.elements.snippetActions) {
+        this.elements.snippetActions.style.display = 'flex';
+      }
+    } else {
+      this.elements.snippetPreview.style.display = 'none';
+      if (this.elements.snippetActions) {
+        this.elements.snippetActions.style.display = 'none';
+      }
+    }
+  }
+
+  /**
+   * Load snippet data into the UI for editing or viewing
+   * @param {object} snippet - Snippet object to load
+   */
+  loadSnippetData(snippet) {
+    if (!snippet) return;
+
+    // Set table
+    if (this.tableAutocomplete && snippet.tableName) {
+      this.tableAutocomplete.setValue(snippet.tableName);
+      this.state.setSelectedTable(snippet.tableName);
+      this.updateSelectSectionState();
+    }
+
+    // Clear and reload field rows
+    this.fieldAutocompletes.forEach(ac => ac.destroy());
+    this.fieldAutocompletes.clear();
+    this.elements.selectFields.innerHTML = '';
+
+    if (snippet.fieldRows && snippet.fieldRows.length > 0) {
+      snippet.fieldRows.forEach(fieldData => {
+        this.addFieldRowWithData(fieldData);
+      });
+    }
+
+    // Clear and reload condition rows
+    this.conditionFieldAutocompletes.forEach(ac => ac.destroy());
+    this.conditionFieldAutocompletes.clear();
+    this.elements.whereConditions.innerHTML = '';
+
+    if (snippet.conditionRows && snippet.conditionRows.length > 0) {
+      snippet.conditionRows.forEach(conditionData => {
+        this.addConditionRowWithData(conditionData);
+      });
+    }
+  }
+
+  /**
+   * Add a field row with pre-populated data
+   * @param {object} fieldData - Field data to populate
+   */
+  addFieldRowWithData(fieldData) {
+    const fieldId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    const fieldRow = document.createElement('div');
+    fieldRow.className = 'field-row';
+    fieldRow.dataset.fieldId = fieldId;
+
+    // Create autocomplete container
+    const autocompleteContainer = document.createElement('div');
+    autocompleteContainer.className = 'field-autocomplete-container';
+
+    // Create alias input
+    const asLabel = document.createElement('span');
+    asLabel.className = 'as-label';
+    asLabel.textContent = 'AS';
+
+    const aliasInput = document.createElement('input');
+    aliasInput.type = 'text';
+    aliasInput.className = 'field-alias input-field';
+    aliasInput.placeholder = 'alias';
+    aliasInput.value = fieldData.alias || '';
+
+    // Create remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove';
+    removeBtn.textContent = '\u00d7';
+    removeBtn.addEventListener('click', () => {
+      const ac = this.fieldAutocompletes.get(fieldId);
+      if (ac) {
+        ac.destroy();
+        this.fieldAutocompletes.delete(fieldId);
+      }
+      fieldRow.remove();
+    });
+
+    // Assemble row
+    fieldRow.appendChild(autocompleteContainer);
+    fieldRow.appendChild(asLabel);
+    fieldRow.appendChild(aliasInput);
+    fieldRow.appendChild(removeBtn);
+
+    this.elements.selectFields.appendChild(fieldRow);
+
+    // Create autocomplete for this field
+    const isKnownTable = this.state.isKnownTable();
+    const autocomplete = new Autocomplete({
+      container: autocompleteContainer,
+      getItems: () => this.state.getFieldAutocompleteItems(),
+      filterItems: (query) => this.state.filterFields(query),
+      onSelect: (item) => this.handleFieldSelect(item, aliasInput),
+      placeholder: isKnownTable ? 'Type to search fields...' : 'Enter field name...',
+      emptyMessage: isKnownTable ? 'No matching fields' : 'Type field name',
+      allowCustom: true,
+      debounceMs: 250
+    });
+
+    // Set the initial value
+    if (fieldData.fieldName) {
+      autocomplete.setValue(fieldData.fieldName);
+    }
+
+    this.fieldAutocompletes.set(fieldId, autocomplete);
+  }
+
+  /**
+   * Add a condition row with pre-populated data
+   * @param {object} conditionData - Condition data to populate
+   */
+  addConditionRowWithData(conditionData) {
+    if (conditionData.type === 'field') {
+      this.addFieldConditionRowWithData(conditionData);
+    } else {
+      this.addTemplateConditionRowWithData(conditionData);
+    }
+  }
+
+  /**
+   * Add a field condition row with pre-populated data
+   * @param {object} conditionData - Condition data to populate
+   */
+  addFieldConditionRowWithData(conditionData) {
+    const conditionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    const conditionRow = document.createElement('div');
+    conditionRow.className = 'condition-row field-condition-row';
+    conditionRow.dataset.conditionId = conditionId;
+    conditionRow.dataset.conditionType = 'field';
+
+    // Create field autocomplete container
+    const fieldContainer = document.createElement('div');
+    fieldContainer.className = 'field-condition-autocomplete-container';
+
+    // Create operator select
+    const operatorSelect = document.createElement('select');
+    operatorSelect.className = 'condition-operator input-field';
+    operatorSelect.innerHTML = `
+      <option value="=" ${conditionData.operator === '=' ? 'selected' : ''}>=</option>
+      <option value="IN" ${conditionData.operator === 'IN' ? 'selected' : ''}>IN</option>
+      <option value="NOT IN" ${conditionData.operator === 'NOT IN' ? 'selected' : ''}>NOT IN</option>
+    `;
+
+    const isMultiValue = conditionData.operator === 'IN' || conditionData.operator === 'NOT IN';
+
+    // Create value input
+    const valueInput = document.createElement('input');
+    valueInput.type = 'text';
+    valueInput.className = 'condition-field-value input-field';
+    valueInput.placeholder = 'Value';
+    valueInput.value = conditionData.value || '';
+    valueInput.style.display = isMultiValue ? 'none' : 'inline-block';
+
+    // Create multi-value textarea
+    const multiValueInput = document.createElement('textarea');
+    multiValueInput.className = 'condition-multi-value input-field';
+    multiValueInput.placeholder = 'One value per line';
+    multiValueInput.rows = 3;
+    multiValueInput.value = conditionData.values ? conditionData.values.join('\n') : '';
+    multiValueInput.style.display = isMultiValue ? 'block' : 'none';
+
+    // Create remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove';
+    removeBtn.textContent = '\u00d7';
+
+    // Assemble row
+    conditionRow.appendChild(fieldContainer);
+    conditionRow.appendChild(operatorSelect);
+    conditionRow.appendChild(valueInput);
+    conditionRow.appendChild(multiValueInput);
+    conditionRow.appendChild(removeBtn);
+
+    this.elements.whereConditions.appendChild(conditionRow);
+
+    // Create autocomplete for field selection
+    const isKnownTable = this.state.isKnownTable();
+    const autocomplete = new Autocomplete({
+      container: fieldContainer,
+      getItems: () => this.state.getFieldAutocompleteItems(),
+      filterItems: (query) => this.state.filterFields(query),
+      onSelect: (item) => {
+        conditionRow.dataset.fieldName = item.value;
+        conditionRow.dataset.isBinary = item.isBinary || false;
+      },
+      placeholder: isKnownTable ? 'Select field...' : 'Enter field...',
+      emptyMessage: isKnownTable ? 'No matching fields' : 'Type field name',
+      allowCustom: true,
+      debounceMs: 250
+    });
+
+    // Set the initial value
+    if (conditionData.fieldName) {
+      autocomplete.setValue(conditionData.fieldName);
+    }
+
+    this.conditionFieldAutocompletes.set(conditionId, autocomplete);
+
+    // Handle operator change
+    operatorSelect.addEventListener('change', (e) => {
+      const isMulti = e.target.value === 'IN' || e.target.value === 'NOT IN';
+      valueInput.style.display = isMulti ? 'none' : 'inline-block';
+      multiValueInput.style.display = isMulti ? 'block' : 'none';
+    });
+
+    // Handle remove
+    removeBtn.addEventListener('click', () => {
+      const ac = this.conditionFieldAutocompletes.get(conditionId);
+      if (ac) {
+        ac.destroy();
+        this.conditionFieldAutocompletes.delete(conditionId);
+      }
+      conditionRow.remove();
+    });
+  }
+
+  /**
+   * Add a template condition row with pre-populated data
+   * @param {object} conditionData - Condition data to populate
+   */
+  addTemplateConditionRowWithData(conditionData) {
+    const conditionId = Date.now();
+    const conditionRow = document.createElement('div');
+    conditionRow.className = 'condition-row';
+    conditionRow.dataset.conditionId = conditionId;
+
+    // Get conditions for current table
+    const conditions = this.state.getWhereConditions();
+    const hasConditions = Object.keys(conditions).length > 0;
+
+    let optionsHtml = '<option value="">-- Select Condition --</option>';
+
+    if (hasConditions) {
+      for (const [key, condition] of Object.entries(conditions)) {
+        const selected = key === conditionData.conditionType ? 'selected' : '';
+        optionsHtml += `<option value="${key}" ${selected}>${condition.label}</option>`;
+      }
+    }
+
+    const customSelected = conditionData.conditionType === 'custom' ? 'selected' : '';
+    optionsHtml += `<option value="custom" ${customSelected}>Custom</option>`;
+
+    const showCustom = conditionData.conditionType === 'custom' ? 'inline-block' : 'none';
+
+    conditionRow.innerHTML = `
+      <select class="condition-type input-field">
+        ${optionsHtml}
+      </select>
+      <input type="text" class="condition-value input-field" placeholder="Custom SQL condition" style="display:${showCustom};" value="${conditionData.customValue || ''}" />
+      <button class="btn-remove">\u00d7</button>
+    `;
+
+    this.elements.whereConditions.appendChild(conditionRow);
+    this.attachConditionRowListeners(conditionRow);
   }
 
 }

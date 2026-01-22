@@ -31,6 +31,48 @@ class QueryBuilder {
   }
 
   /**
+   * Convert parsed date to a Date object for comparison
+   * @param {string} dateTimeStr - Date string in YYYY-MM-DD or YYYY-MM-DD-HH format
+   * @returns {Date|null} Date object or null if invalid
+   */
+  parseToDate(dateTimeStr) {
+    const parsed = this.parseDateTimeInput(dateTimeStr);
+    if (!parsed) return null;
+
+    const { year, month, day, hour } = parsed;
+    return new Date(year, month - 1, day, hour);
+  }
+
+  /**
+   * Validate that end time is greater than start time
+   * @param {string} startTime - Start time string
+   * @param {string} endTime - End time string
+   * @returns {object} Validation result { valid: boolean, error: string|null }
+   */
+  validateTimeRange(startTime, endTime) {
+    if (!startTime || !endTime) {
+      return { valid: false, error: 'Please enter start and end time' };
+    }
+
+    const startDate = this.parseToDate(startTime);
+    const endDate = this.parseToDate(endTime);
+
+    if (!startDate) {
+      return { valid: false, error: 'Invalid start time format (use YYYY-MM-DD or YYYY-MM-DD-HH)' };
+    }
+
+    if (!endDate) {
+      return { valid: false, error: 'Invalid end time format (use YYYY-MM-DD or YYYY-MM-DD-HH)' };
+    }
+
+    if (endDate <= startDate) {
+      return { valid: false, error: 'End time must be greater than start time' };
+    }
+
+    return { valid: true, error: null };
+  }
+
+  /**
    * Convert local time to UTC
    * @param {string} dateTimeStr - Date string
    * @param {string} timezoneOffset - Timezone offset
@@ -94,12 +136,31 @@ class QueryBuilder {
   }
 
   /**
-   * Build WHERE part for a single condition
-   * @param {string} conditionType - Condition type
-   * @param {string} customValue - Custom SQL value
+   * Escape single quotes in SQL string values
+   * @param {string} value - Value to escape
+   * @returns {string} Escaped value
+   */
+  escapeSqlString(value) {
+    if (value == null) return '';
+    return String(value).replace(/'/g, "''");
+  }
+
+  /**
+   * Build WHERE part for a single condition (handles both field and template conditions)
+   * @param {object} conditionData - Condition data from UI
    * @returns {string|null} SQL WHERE expression or null
    */
-  buildWherePart(conditionType, customValue) {
+  buildWherePart(conditionData) {
+    if (!conditionData) return null;
+
+    // Handle field-based conditions
+    if (conditionData.type === 'field') {
+      return this.buildFieldCondition(conditionData);
+    }
+
+    // Handle template conditions (legacy behavior)
+    const { conditionType, customValue } = conditionData;
+
     if (!conditionType) return null;
 
     if (conditionType === 'custom') {
@@ -109,6 +170,37 @@ class QueryBuilder {
     const conditions = this.state.getWhereConditions();
     const condition = conditions[conditionType];
     return condition ? `  ${condition.sql}` : null;
+  }
+
+  /**
+   * Build SQL for a field-based condition
+   * @param {object} conditionData - Field condition data
+   * @returns {string|null} SQL WHERE expression or null
+   */
+  buildFieldCondition(conditionData) {
+    const { fieldName, isBinary, operator, value, values } = conditionData;
+
+    if (!fieldName) return null;
+
+    // Determine the field expression (wrap binary fields with BYTES2STR)
+    const isBinaryField = isBinary || this.state.isBinaryField(fieldName);
+    const fieldExpr = isBinaryField ? `BYTES2STR(${fieldName})` : fieldName;
+
+    if (operator === '=') {
+      if (!value && value !== 0) return null;
+      const escapedValue = this.escapeSqlString(value);
+      return `  ${fieldExpr} = '${escapedValue}'`;
+    }
+
+    if (operator === 'IN' || operator === 'NOT IN') {
+      if (!values || values.length === 0) return null;
+      const escapedValues = values
+        .map(v => `'${this.escapeSqlString(v.trim())}'`)
+        .join(', ');
+      return `  ${fieldExpr} ${operator} (${escapedValues})`;
+    }
+
+    return null;
   }
 
   /**
@@ -140,7 +232,7 @@ class QueryBuilder {
       .filter(Boolean);
 
     const whereParts = conditionRows
-      .map(row => this.buildWherePart(row.conditionType, row.customValue))
+      .map(row => this.buildWherePart(row))
       .filter(Boolean);
 
     const fromClause = this.buildFromClause(tableName, startTime, endTime, timezone);

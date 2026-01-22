@@ -41,16 +41,41 @@
       </label>
     </section>
 
-    <!-- Quick Query Section - shown only when Quick Query mode is selected -->
-    <section class="section quick-query-section" id="quickQuerySection" style="display: none;">
-      <h3>Quick Query</h3>
-      <div class="form-group">
-        <label>Template:</label>
-        <select id="quickQuerySelect" class="input-field">
-          <option value="">-- Select Query --</option>
-          <option value="distinct_type_all">DISTINCT type (all creative tables)</option>
-        </select>
+    <!-- Quick Access Section - shown only when Quick Query mode is selected -->
+    <section class="section quick-access-section" id="quickAccessSection" style="display: none;">
+      <h3>Quick Access</h3>
+      <div class="quick-access-tabs">
+        <button class="tab-btn active" data-tab="templates">Templates</button>
+        <button class="tab-btn" data-tab="snippets">Saved Snippets</button>
       </div>
+
+      <!-- Templates Tab -->
+      <div class="tab-content active" id="templatesTab">
+        <div class="form-group">
+          <label>Template:</label>
+          <select id="quickQuerySelect" class="input-field">
+            <option value="">-- Select Query --</option>
+            <option value="distinct_type_all">DISTINCT type (all creative tables)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Saved Snippets Tab -->
+      <div class="tab-content" id="snippetsTab" style="display: none;">
+        <div class="form-group">
+          <label>Snippet:</label>
+          <select id="snippetSelect" class="input-field">
+            <option value="">-- Select Snippet --</option>
+          </select>
+        </div>
+        <div id="snippetPreview" class="snippet-preview" style="display: none;"></div>
+        <div class="snippet-actions" id="snippetActions" style="display: none;">
+          <button id="renameSnippetBtn" class="btn-snippet-action" title="Rename">Rename</button>
+          <button id="deleteSnippetBtn" class="btn-snippet-action btn-snippet-delete" title="Delete">Delete</button>
+        </div>
+      </div>
+
+      <!-- Common Time Range for Quick Access -->
       <div class="form-group">
         <label>Time:</label>
         <input type="text" id="quickStartTime" placeholder="YYYY-MM-DD-HH" class="input-field inline" />
@@ -150,12 +175,16 @@
     <section class="section">
       <h3>WHERE</h3>
       <div id="whereConditions" class="conditions-container"></div>
-      <button id="addConditionBtn" class="btn btn-secondary">+Add condition</button>
+      <div class="where-buttons">
+        <button id="addFieldConditionBtn" class="btn btn-secondary">+Field Condition</button>
+        <button id="addConditionBtn" class="btn btn-secondary">+Template</button>
+      </div>
     </section>
 
     <div class="actions">
       <button id="generateBtn" class="btn btn-primary">Generate Query</button>
       <button id="copyBtn" class="btn btn-secondary">Copy to Clipboard</button>
+      <button id="saveSnippetBtn" class="btn btn-secondary" title="Save current query as a reusable snippet">Save as Snippet</button>
     </div>
 
     <section class="section">
@@ -183,6 +212,7 @@
 
   <!-- Core modules -->
   <script src="src/js/quickQueries.js"></script>
+  <script src="src/js/snippetManager.js"></script>
   <script src="src/js/state.js"></script>
   <script src="src/js/schemaParser.js"></script>
   <script src="src/js/queryBuilder.js"></script>
