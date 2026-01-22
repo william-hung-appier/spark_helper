@@ -1,7 +1,19 @@
-document.addEventListener('DOMContentLoaded', async () => {
-  const schemaParser = new SchemaParser(FIELD_MAPPINGS);
-  const queryBuilder = new QueryBuilder(FIELD_MAPPINGS, WHERE_CONDITIONS);
-  const ui = new UIManager(appState, FIELD_MAPPINGS);
+/**
+ * Main Application Entry Point
+ *
+ * Initializes the Spark Query Builder extension and wires up event handlers.
+ */
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize schema parser and connect to state
+  const schemaParser = new SchemaParser();
+  appState.setSchemaParser(schemaParser);
+
+  // Initialize query builder with state access
+  const queryBuilder = new QueryBuilder(appState);
+
+  // Initialize UI manager
+  const ui = new UIManager(appState);
 
   // Theme management
   const initTheme = () => {
@@ -25,25 +37,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     themeToggle.addEventListener('click', toggleTheme);
   }
 
+  // Initialize UI
   ui.init();
-  ui.showLoading();
 
-  try {
-    const fields = await schemaParser.getAvailableFields();
-    appState.setAvailableFields(fields);
-  } catch (error) {
-    console.error('Failed to load schema fields:', error);
-    const fallbackFields = Object.keys(FIELD_MAPPINGS).map(name => ({
-      name,
-      type: 'Customize',
-      isCustomize: true
-    }));
-    appState.setAvailableFields(fallbackFields);
-  }
-
-  ui.clearLoading();
-  ui.addFieldRow();
-
+  // Event listeners
   ui.elements.addFieldBtn.addEventListener('click', () => ui.addFieldRow());
   ui.elements.addConditionBtn.addEventListener('click', () => ui.addConditionRow());
 
@@ -62,6 +59,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   ui.elements.copyBtn.addEventListener('click', () => ui.copyToClipboard());
+
+  ui.elements.clearBtn.addEventListener('click', () => ui.setQueryOutput(''));
 
   document.querySelectorAll('input[name="queryType"]').forEach(radio => {
     radio.addEventListener('change', (e) => {

@@ -38,17 +38,12 @@
       </label>
     </section>
 
-    <section class="section">
-      <h3 id="selectHeader">SELECT</h3>
-      <div id="selectFields" class="fields-container"></div>
-      <button id="addFieldBtn" class="btn btn-secondary">+Add field</button>
-    </section>
-
+    <!-- FROM section moved before SELECT -->
     <section class="section">
       <h3>FROM</h3>
       <div class="form-group">
         <label>Table:</label>
-        <input type="text" id="tableName" value="imp_join_all2" class="input-field" />
+        <div id="tableContainer" class="table-autocomplete-container"></div>
       </div>
       <div class="form-group">
         <label>Time:</label>
@@ -90,6 +85,13 @@
       </div>
     </section>
 
+    <section class="section" id="selectSection">
+      <h3 id="selectHeader">SELECT</h3>
+      <div id="selectMessage" class="select-message">Select a table first</div>
+      <div id="selectFields" class="fields-container"></div>
+      <button id="addFieldBtn" class="btn btn-secondary" disabled>+Add field</button>
+    </section>
+
     <section class="section">
       <h3>WHERE</h3>
       <div id="whereConditions" class="conditions-container"></div>
@@ -102,16 +104,33 @@
     </div>
 
     <section class="section">
-      <h3>Generated Query</h3>
-      <textarea id="queryOutput" class="query-output" readonly></textarea>
+      <div class="section-header">
+        <h3>Generated Query</h3>
+        <button id="clearBtn" class="btn-clear" title="Clear query">Clear</button>
+      </div>
+      <textarea id="queryOutput" class="query-output" placeholder="Generated SQL will appear here..."></textarea>
     </section>
   </div>
 
-  <script src="src/js/defaultSchema.js"></script>
-  <script src="src/js/fieldMappings.js"></script>
+  <!-- Schema files (auto-generated) -->
+  <script src="src/js/schemas/imp_join_all2.js"></script>
+  <script src="src/js/schemas/creative_event.js"></script>
+  <script src="src/js/schemas/creative_perf_event.js"></script>
+  <script src="src/js/schemas/creative_quality.js"></script>
+  <script src="src/js/schemas/index.js"></script>
+
+  <!-- Mapping files -->
+  <script src="src/js/mappings/imp_join_all2.js"></script>
+  <script src="src/js/mappings/creative_event.js"></script>
+  <script src="src/js/mappings/creative_perf_event.js"></script>
+  <script src="src/js/mappings/creative_quality.js"></script>
+  <script src="src/js/mappings/index.js"></script>
+
+  <!-- Core modules -->
   <script src="src/js/state.js"></script>
   <script src="src/js/schemaParser.js"></script>
   <script src="src/js/queryBuilder.js"></script>
+  <script src="src/js/autocomplete.js"></script>
   <script src="src/js/ui.js"></script>
   <script src="src/js/app.js"></script>
 </body>

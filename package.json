@@ -1,0 +1,12 @@
+{
+  "name": "spark-helper",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Chrome extension for generating Spark SQL queries",
+  "scripts": {
+    "generate-schemas": "node scripts/generate-schemas.js"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}
