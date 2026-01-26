@@ -35,6 +35,7 @@ spark_helper/
 │   │   ├── schemaParser.js # SchemaParser class for bundled schemas
 │   │   ├── autocomplete.js # Autocomplete component
 │   │   ├── quickQueries.js # Quick Query templates configuration
+│   │   ├── joinKeys.js     # Common join key definitions
 │   │   ├── schemas/        # Auto-generated schema JS files
 │   │   │   ├── index.js
 │   │   │   ├── imp_join_all2.js
@@ -105,9 +106,25 @@ The extension supports three query modes:
 
 | Mode | Description |
 |------|-------------|
-| **Standard** | Build custom SELECT queries with multiple field selection |
+| **Standard** | Build custom SELECT queries with multiple field selection (supports JOIN) |
 | **Distinct** | Build SELECT DISTINCT queries with single field |
 | **Quick Query** | Use predefined query templates (simplified UI) |
+
+### JOIN Support
+
+Standard mode includes optional JOIN functionality:
+
+- **Supported JOIN types:** INNER JOIN, LEFT OUTER JOIN, FULL OUTER JOIN
+- **Visual Venn diagrams** explain each join type in the info modal
+- **Smart suggestions** for common join keys between tables (cid, oid, campaign_id)
+- **Dual SELECT sections** for adding fields from both tables (t1 and t2 aliases)
+- **History/restore support** for JOIN queries
+
+**Key files:**
+- `src/js/joinKeys.js` - Common join key definitions between table pairs
+- `src/js/state.js` - JOIN configuration state (joinConfig object)
+- `src/js/queryBuilder.js` - generateJoinQuery() method
+- `src/js/ui.js` - JOIN UI methods and dual-table field management
 
 ### Data Flow
 

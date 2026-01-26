@@ -220,6 +220,176 @@ class QueryBuilder {
   }
 
   /**
+   * Build JOIN clause with table alias and time range
+   * @param {string} joinType - JOIN type
+   * @param {string} tableName - Table name
+   * @param {string} startTime - Start time
+   * @param {string} endTime - End time
+   * @param {string} timezone - Timezone offset
+   * @param {string} alias - Table alias (t2)
+   * @returns {string} JOIN clause
+   */
+  buildJoinClause(joinType, tableName, startTime, endTime, timezone, alias) {
+    const tableWithTime = this.buildFromClause(tableName, startTime, endTime, timezone);
+    return `${joinType}\n  ${tableWithTime} ${alias}`;
+  }
+
+  /**
+   * Build ON clause for JOIN
+   * @param {string} field1 - Field from first table
+   * @param {string} field2 - Field from second table
+   * @returns {string} ON clause
+   */
+  buildOnClause(field1, field2) {
+    return `ON t1.${field1} = t2.${field2}`;
+  }
+
+  /**
+   * Generate SQL query with JOIN
+   * @param {object} config - Query configuration
+   * @returns {string} Generated SQL query
+   */
+  generateJoinQuery(config) {
+    const {
+      fieldRowsT1,
+      fieldRowsT2,
+      conditionRows,
+      table1,
+      table2,
+      joinType,
+      onField1,
+      onField2,
+      startTime,
+      endTime,
+      timezone,
+      isDistinct
+    } = config;
+
+    // Build SELECT parts with table prefixes
+    const selectPartsT1 = fieldRowsT1
+      .map(row => this.buildSelectPartWithPrefix(row, 't1', table1))
+      .filter(Boolean);
+
+    const selectPartsT2 = fieldRowsT2
+      .map(row => this.buildSelectPartWithPrefix(row, 't2', table2))
+      .filter(Boolean);
+
+    const allSelectParts = [...selectPartsT1, ...selectPartsT2];
+
+    // Build WHERE parts with table prefixes
+    const whereParts = conditionRows
+      .map(row => this.buildWherePartWithPrefix(row))
+      .filter(Boolean);
+
+    // Build FROM clause with alias
+    const fromClause = this.buildFromClause(table1, startTime, endTime, timezone);
+
+    // Build JOIN clause
+    const joinClause = this.buildJoinClause(joinType, table2, startTime, endTime, timezone, 't2');
+
+    // Build ON clause
+    const onClause = this.buildOnClause(onField1, onField2);
+
+    // Assemble query
+    let query = isDistinct ? 'SELECT DISTINCT\n' : 'SELECT\n';
+
+    if (allSelectParts.length > 0) {
+      query += allSelectParts.join(',\n');
+    }
+
+    query += '\nFROM\n';
+    query += `  ${fromClause} t1\n`;
+    query += joinClause + '\n';
+    query += onClause;
+
+    if (whereParts.length > 0) {
+      query += '\nWHERE\n';
+      query += whereParts.join('\n  AND ');
+    }
+
+    return query;
+  }
+
+  /**
+   * Build SELECT part with table prefix
+   * @param {object} fieldData - Field data
+   * @param {string} prefix - Table prefix (t1 or t2)
+   * @param {string} tableName - Table name for binary check
+   * @returns {string|null} SQL SELECT expression
+   */
+  buildSelectPartWithPrefix(fieldData, prefix, tableName) {
+    const { fieldName, fieldType, isCustom, isBinary, sql, alias } = fieldData;
+
+    if (!fieldName) return null;
+
+    // Custom mapping with predefined SQL
+    if (isCustom && sql) {
+      // Replace field references with prefixed versions
+      const prefixedSql = sql.replace(/(\w+)(?=\s*[,)]|$)/g, (match) => {
+        // Don't prefix function names or string literals
+        if (/^[A-Z_]+$/.test(match) || /^'/.test(match)) {
+          return match;
+        }
+        return `${prefix}.${match}`;
+      });
+      const finalAlias = alias || fieldName;
+      return `  ${prefixedSql} AS ${finalAlias}`;
+    }
+
+    // Regular schema field
+    const finalAlias = alias || this.getBaseName(fieldName);
+    const prefixedField = `${prefix}.${fieldName}`;
+
+    // Check if binary field needs BYTES2STR wrapping
+    const isBinaryField = isBinary || this.state.schemaParser?.isBinaryFieldForTable(fieldName, tableName);
+
+    if (isBinaryField) {
+      return `  BYTES2STR(${prefixedField}) AS ${finalAlias}`;
+    }
+
+    return `  ${prefixedField} AS ${finalAlias}`;
+  }
+
+  /**
+   * Build WHERE part with table prefix
+   * @param {object} conditionData - Condition data
+   * @returns {string|null} SQL WHERE expression
+   */
+  buildWherePartWithPrefix(conditionData) {
+    if (!conditionData) return null;
+
+    // Handle field-based conditions with prefix
+    if (conditionData.type === 'field') {
+      const { fieldName, tablePrefix, isBinary, operator, value, values } = conditionData;
+
+      if (!fieldName) return null;
+
+      const prefix = tablePrefix || 't1';
+      const prefixedField = `${prefix}.${fieldName}`;
+      const fieldExpr = isBinary ? `BYTES2STR(${prefixedField})` : prefixedField;
+
+      if (operator === '=') {
+        if (!value && value !== 0) return null;
+        const escapedValue = this.escapeSqlString(value);
+        return `  ${fieldExpr} = '${escapedValue}'`;
+      }
+
+      if (operator === 'IN' || operator === 'NOT IN') {
+        if (!values || values.length === 0) return null;
+        const escapedValues = values
+          .map(v => `'${this.escapeSqlString(v.trim())}'`)
+          .join(', ');
+        return `  ${fieldExpr} ${operator} (${escapedValues})`;
+      }
+
+      return null;
+    }
+
+    // Template conditions pass through as-is
+    return this.buildWherePart(conditionData);
+  }
+
+  /**
    * Generate complete SQL query
    * @param {object} config - Query configuration
    * @returns {string} Generated SQL query

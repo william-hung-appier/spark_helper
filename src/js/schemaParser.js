@@ -159,4 +159,90 @@ class SchemaParser {
       item.label.toLowerCase().startsWith(lowerQuery)
     );
   }
+
+  /**
+   * Check if a table name is a known/supported table
+   * @param {string} tableName - Table name to check
+   * @returns {boolean} True if known
+   */
+  isKnownTableName(tableName) {
+    return TABLE_SCHEMAS.hasOwnProperty(tableName);
+  }
+
+  /**
+   * Get autocomplete items for a specific table
+   * @param {string} tableName - Table name
+   * @returns {Array} Array of autocomplete items
+   */
+  getAutocompleteItemsForTable(tableName) {
+    const schema = getTableSchema(tableName);
+    if (!schema) {
+      return [];
+    }
+
+    const items = [];
+    const mappings = TABLE_MAPPINGS[tableName] || {};
+    const customFields = mappings.fields || {};
+
+    // Add custom mapping fields first
+    for (const [key, config] of Object.entries(customFields)) {
+      items.push({
+        value: key,
+        label: key,
+        type: 'custom',
+        isCustom: true,
+        sql: config.sql,
+        alias: config.alias,
+        isBinary: false
+      });
+    }
+
+    // Add schema fields
+    const fields = schema.fields || [];
+    for (const field of fields) {
+      // Skip if already covered by custom mapping
+      if (customFields[field.name]) continue;
+
+      items.push({
+        value: field.name,
+        label: field.name,
+        type: field.type,
+        isCustom: false,
+        isBinary: field.type === 'binary'
+      });
+    }
+
+    return items;
+  }
+
+  /**
+   * Filter fields for a specific table by query
+   * @param {string} query - Search query
+   * @param {string} tableName - Table name
+   * @returns {Array} Filtered items
+   */
+  filterFieldsForTable(query, tableName) {
+    const items = this.getAutocompleteItemsForTable(tableName);
+    if (!query) return items;
+
+    const lowerQuery = query.toLowerCase();
+    return items.filter(item =>
+      item.label.toLowerCase().startsWith(lowerQuery)
+    );
+  }
+
+  /**
+   * Check if a field is binary for a specific table
+   * @param {string} fieldName - Field name
+   * @param {string} tableName - Table name
+   * @returns {boolean} True if binary
+   */
+  isBinaryFieldForTable(fieldName, tableName) {
+    const schema = getTableSchema(tableName);
+    if (!schema) return false;
+
+    const fields = schema.fields || [];
+    const field = fields.find(f => f.name === fieldName);
+    return field ? field.type === 'binary' : false;
+  }
 }

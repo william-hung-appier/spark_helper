@@ -170,13 +170,62 @@
           <option value="14">UTC +14</option>
         </select>
       </div>
+
+      <!-- JOIN Configuration (hidden by default) -->
+      <div class="form-group join-toggle-group">
+        <label></label>
+        <label class="checkbox-label" id="joinToggleLabel" style="display: none;">
+          <input type="checkbox" id="joinToggle" />
+          <span>Join with another table</span>
+        </label>
+      </div>
+
+      <div id="joinConfigSection" class="join-config-section" style="display: none;">
+        <div class="form-group">
+          <label>Join Type:</label>
+          <select id="joinType" class="input-field">
+            <option value="INNER JOIN">INNER JOIN</option>
+            <option value="LEFT OUTER JOIN">LEFT OUTER JOIN</option>
+            <option value="FULL OUTER JOIN">FULL OUTER JOIN</option>
+          </select>
+          <button type="button" id="joinInfoBtn" class="btn-info" title="Learn about JOIN types">?</button>
+        </div>
+        <div class="form-group">
+          <label>Table:</label>
+          <div id="joinTableContainer" class="table-autocomplete-container"></div>
+        </div>
+        <div class="form-group">
+          <label>ON:</label>
+          <div id="onField1Container" class="on-field-container"></div>
+          <span>=</span>
+          <div id="onField2Container" class="on-field-container"></div>
+        </div>
+      </div>
     </section>
 
     <section class="section" id="selectSection">
       <h3 id="selectHeader">SELECT</h3>
       <div id="selectMessage" class="select-message">Select a table first</div>
-      <div id="selectFields" class="fields-container"></div>
-      <button id="addFieldBtn" class="btn btn-secondary" disabled>+Add field</button>
+
+      <!-- Single table fields (default) -->
+      <div id="singleTableFields">
+        <div id="selectFields" class="fields-container"></div>
+        <button id="addFieldBtn" class="btn btn-secondary" disabled>+Add field</button>
+      </div>
+
+      <!-- Dual table fields (JOIN mode) -->
+      <div id="dualTableFields" style="display: none;">
+        <div class="table-fields-section">
+          <h4 id="table1Header" class="table-fields-header">Table 1 (t1)</h4>
+          <div id="selectFieldsT1" class="fields-container"></div>
+          <button id="addFieldBtnT1" class="btn btn-secondary" disabled>+Add field</button>
+        </div>
+        <div class="table-fields-section">
+          <h4 id="table2Header" class="table-fields-header">Table 2 (t2)</h4>
+          <div id="selectFieldsT2" class="fields-container"></div>
+          <button id="addFieldBtnT2" class="btn btn-secondary" disabled>+Add field</button>
+        </div>
+      </div>
     </section>
 
     <section class="section">
@@ -213,6 +262,66 @@
       </div>
       <div id="historyList" class="history-list"></div>
     </section>
+
+    <!-- JOIN Info Modal -->
+    <div id="joinInfoModal" class="modal" style="display: none;">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Understanding JOIN Types</h3>
+          <button type="button" class="modal-close" id="closeJoinModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="join-type-grid">
+            <div class="join-type-item">
+              <div class="join-diagram inner-join">
+                <svg viewBox="0 0 100 60" class="venn-diagram">
+                  <circle cx="35" cy="30" r="25" class="circle-a"/>
+                  <circle cx="65" cy="30" r="25" class="circle-b"/>
+                  <path d="M50,10 A25,25 0 0,1 50,50 A25,25 0 0,1 50,10" class="intersection"/>
+                  <text x="25" y="33" class="circle-label">A</text>
+                  <text x="75" y="33" class="circle-label">B</text>
+                </svg>
+              </div>
+              <div class="join-type-name">INNER JOIN</div>
+              <div class="join-type-desc">Only matching rows from both tables</div>
+            </div>
+            <div class="join-type-item">
+              <div class="join-diagram left-join">
+                <svg viewBox="0 0 100 60" class="venn-diagram">
+                  <circle cx="35" cy="30" r="25" class="circle-a filled"/>
+                  <circle cx="65" cy="30" r="25" class="circle-b"/>
+                  <text x="25" y="33" class="circle-label">A</text>
+                  <text x="75" y="33" class="circle-label">B</text>
+                </svg>
+              </div>
+              <div class="join-type-name">LEFT OUTER JOIN</div>
+              <div class="join-type-desc">All from left table, matches from right</div>
+            </div>
+            <div class="join-type-item">
+              <div class="join-diagram full-join">
+                <svg viewBox="0 0 100 60" class="venn-diagram">
+                  <circle cx="35" cy="30" r="25" class="circle-a filled"/>
+                  <circle cx="65" cy="30" r="25" class="circle-b filled"/>
+                  <text x="25" y="33" class="circle-label">A</text>
+                  <text x="75" y="33" class="circle-label">B</text>
+                </svg>
+              </div>
+              <div class="join-type-name">FULL OUTER JOIN</div>
+              <div class="join-type-desc">All rows from both tables, NULL where no match</div>
+            </div>
+          </div>
+          <div class="join-example">
+            <strong>Example:</strong> Joining orders with customers
+            <ul>
+              <li><strong>INNER:</strong> Only orders that have a customer</li>
+              <li><strong>LEFT:</strong> All orders, customer info if exists</li>
+              <li><strong>FULL:</strong> All orders + all customers</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Schema files (auto-generated) -->
@@ -228,6 +337,9 @@
   <script src="src/js/mappings/creative_perf_event.js"></script>
   <script src="src/js/mappings/creative_quality.js"></script>
   <script src="src/js/mappings/index.js"></script>
+
+  <!-- Join keys configuration -->
+  <script src="src/js/joinKeys.js"></script>
 
   <!-- Core modules -->
   <script src="src/js/quickQueries.js"></script>

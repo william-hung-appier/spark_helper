@@ -202,6 +202,67 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize UI (must be before history operations)
   ui.init();
 
+  // ============================================
+  // JOIN Event Handlers
+  // ============================================
+
+  const joinToggle = document.getElementById('joinToggle');
+  const joinType = document.getElementById('joinType');
+  const joinInfoBtn = document.getElementById('joinInfoBtn');
+  const joinInfoModal = document.getElementById('joinInfoModal');
+  const closeJoinModal = document.getElementById('closeJoinModal');
+  const modalBackdrop = joinInfoModal?.querySelector('.modal-backdrop');
+  const addFieldBtnT1 = document.getElementById('addFieldBtnT1');
+  const addFieldBtnT2 = document.getElementById('addFieldBtnT2');
+
+  if (joinToggle) {
+    joinToggle.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      appState.setJoinEnabled(enabled);
+
+      if (enabled) {
+        ui.showJoinConfig();
+      } else {
+        ui.hideJoinConfig();
+      }
+    });
+  }
+
+  if (joinType) {
+    joinType.addEventListener('change', (e) => {
+      appState.setJoinType(e.target.value);
+    });
+  }
+
+  // JOIN Info Modal handlers
+  if (joinInfoBtn) {
+    joinInfoBtn.addEventListener('click', () => ui.showJoinInfoModal());
+  }
+
+  if (closeJoinModal) {
+    closeJoinModal.addEventListener('click', () => ui.hideJoinInfoModal());
+  }
+
+  if (modalBackdrop) {
+    modalBackdrop.addEventListener('click', () => ui.hideJoinInfoModal());
+  }
+
+  // Close modal on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && joinInfoModal?.style.display === 'flex') {
+      ui.hideJoinInfoModal();
+    }
+  });
+
+  // Add field buttons for JOIN mode
+  if (addFieldBtnT1) {
+    addFieldBtnT1.addEventListener('click', () => ui.addFieldRowForTable('t1'));
+  }
+
+  if (addFieldBtnT2) {
+    addFieldBtnT2.addEventListener('click', () => ui.addFieldRowForTable('t2'));
+  }
+
   // Render history on load
   renderHistoryList();
 
@@ -385,30 +446,90 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // Standard query generation
-      const fieldRows = ui.getFieldRowsData();
-      const conditionRows = ui.getConditionRowsData();
-      const query = queryBuilder.generate({
-        fieldRows,
-        conditionRows,
-        tableName: fromData.tableName,
-        startTime: fromData.startTime,
-        endTime: fromData.endTime,
-        timezone: fromData.timezone,
-        isDistinct: appState.isDistinctMode()
-      });
-      ui.setQueryOutput(query);
+      let query;
 
-      // Save to history
-      historyManager.save({
-        queryType: appState.queryType,
-        tableName: fromData.tableName,
-        fieldRows,
-        conditionRows,
-        timeStart: fromData.startTime,
-        timeEnd: fromData.endTime,
-        timezone: fromData.timezone
-      }, query);
+      // Check if JOIN mode is enabled
+      if (appState.isJoinEnabled()) {
+        const joinConfig = appState.getJoinConfig();
+
+        // Validate JOIN configuration
+        if (!joinConfig.table2) {
+          ui.showTimeError('Please select a second table for JOIN');
+          return;
+        }
+
+        const onFields = appState.getJoinOnFields();
+        if (!onFields.field1 || !onFields.field2) {
+          ui.showTimeError('Please select fields for the ON clause');
+          return;
+        }
+
+        // Get field rows for both tables
+        const fieldRowsT1 = ui.getFieldRowsDataForTable('t1');
+        const fieldRowsT2 = ui.getFieldRowsDataForTable('t2');
+
+        if (fieldRowsT1.length === 0 && fieldRowsT2.length === 0) {
+          ui.showTimeError('Please add at least one field');
+          return;
+        }
+
+        const conditionRows = ui.getConditionRowsData();
+
+        query = queryBuilder.generateJoinQuery({
+          fieldRowsT1,
+          fieldRowsT2,
+          conditionRows,
+          table1: fromData.tableName,
+          table2: joinConfig.table2,
+          joinType: joinConfig.joinType,
+          onField1: onFields.field1,
+          onField2: onFields.field2,
+          startTime: fromData.startTime,
+          endTime: fromData.endTime,
+          timezone: fromData.timezone,
+          isDistinct: appState.isDistinctMode()
+        });
+
+        // Save to history with JOIN config
+        historyManager.save({
+          queryType: appState.queryType,
+          tableName: fromData.tableName,
+          fieldRows: fieldRowsT1,
+          fieldRowsT2: fieldRowsT2,
+          conditionRows,
+          timeStart: fromData.startTime,
+          timeEnd: fromData.endTime,
+          timezone: fromData.timezone,
+          joinConfig: joinConfig
+        }, query);
+      } else {
+        // Standard single-table query
+        const fieldRows = ui.getFieldRowsData();
+        const conditionRows = ui.getConditionRowsData();
+
+        query = queryBuilder.generate({
+          fieldRows,
+          conditionRows,
+          tableName: fromData.tableName,
+          startTime: fromData.startTime,
+          endTime: fromData.endTime,
+          timezone: fromData.timezone,
+          isDistinct: appState.isDistinctMode()
+        });
+
+        // Save to history
+        historyManager.save({
+          queryType: appState.queryType,
+          tableName: fromData.tableName,
+          fieldRows,
+          conditionRows,
+          timeStart: fromData.startTime,
+          timeEnd: fromData.endTime,
+          timezone: fromData.timezone
+        }, query);
+      }
+
+      ui.setQueryOutput(query);
       renderHistoryList();
     }
   });

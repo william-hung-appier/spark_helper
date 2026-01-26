@@ -8,6 +8,15 @@ class AppState {
     this.queryType = 'standard';
     this.schemaParser = null;
     this.quickQuery = null;
+
+    // JOIN configuration
+    this.joinConfig = {
+      enabled: false,
+      joinType: 'INNER JOIN',
+      table2: '',
+      onField1: '',
+      onField2: ''
+    };
   }
 
   /**
@@ -172,6 +181,142 @@ class AppState {
       return {};
     }
     return this.schemaParser.getCustomFieldMappings();
+  }
+
+  /**
+   * Enable or disable JOIN mode
+   * @param {boolean} enabled - Whether JOIN is enabled
+   */
+  setJoinEnabled(enabled) {
+    this.joinConfig.enabled = enabled;
+    if (!enabled) {
+      this.resetJoinConfig();
+    }
+  }
+
+  /**
+   * Check if JOIN mode is enabled
+   * @returns {boolean} True if JOIN is enabled
+   */
+  isJoinEnabled() {
+    return this.joinConfig.enabled;
+  }
+
+  /**
+   * Set the JOIN type
+   * @param {string} joinType - JOIN type (INNER JOIN, LEFT OUTER JOIN, FULL OUTER JOIN)
+   */
+  setJoinType(joinType) {
+    this.joinConfig.joinType = joinType;
+  }
+
+  /**
+   * Get the current JOIN type
+   * @returns {string} JOIN type
+   */
+  getJoinType() {
+    return this.joinConfig.joinType;
+  }
+
+  /**
+   * Set the second table for JOIN
+   * @param {string} tableName - Second table name
+   * @returns {boolean} True if table has known schema
+   */
+  setJoinTable(tableName) {
+    this.joinConfig.table2 = tableName;
+    return this.schemaParser ? this.schemaParser.isKnownTableName(tableName) : false;
+  }
+
+  /**
+   * Get the second table name
+   * @returns {string} Second table name
+   */
+  getJoinTable() {
+    return this.joinConfig.table2;
+  }
+
+  /**
+   * Set ON clause fields
+   * @param {string} field1 - Field from first table
+   * @param {string} field2 - Field from second table
+   */
+  setJoinOnFields(field1, field2) {
+    this.joinConfig.onField1 = field1;
+    this.joinConfig.onField2 = field2;
+  }
+
+  /**
+   * Get ON clause configuration
+   * @returns {object} ON clause fields
+   */
+  getJoinOnFields() {
+    return {
+      field1: this.joinConfig.onField1,
+      field2: this.joinConfig.onField2
+    };
+  }
+
+  /**
+   * Get full JOIN configuration
+   * @returns {object} Complete join config
+   */
+  getJoinConfig() {
+    return { ...this.joinConfig };
+  }
+
+  /**
+   * Set full JOIN configuration (for loading from history/snippets)
+   * @param {object} config - Join configuration
+   */
+  setJoinConfig(config) {
+    if (config) {
+      this.joinConfig = {
+        enabled: config.enabled || false,
+        joinType: config.joinType || 'INNER JOIN',
+        table2: config.table2 || '',
+        onField1: config.onField1 || '',
+        onField2: config.onField2 || ''
+      };
+    }
+  }
+
+  /**
+   * Reset JOIN configuration to defaults
+   */
+  resetJoinConfig() {
+    this.joinConfig = {
+      enabled: false,
+      joinType: 'INNER JOIN',
+      table2: '',
+      onField1: '',
+      onField2: ''
+    };
+  }
+
+  /**
+   * Get field autocomplete items for a specific table
+   * @param {string} tableName - Table name
+   * @returns {Array} Array of autocomplete items
+   */
+  getFieldAutocompleteItemsForTable(tableName) {
+    if (!this.schemaParser) {
+      return [];
+    }
+    return this.schemaParser.getAutocompleteItemsForTable(tableName);
+  }
+
+  /**
+   * Filter fields for a specific table
+   * @param {string} query - Search query
+   * @param {string} tableName - Table name
+   * @returns {Array} Filtered field items
+   */
+  filterFieldsForTable(query, tableName) {
+    if (!this.schemaParser) {
+      return [];
+    }
+    return this.schemaParser.filterFieldsForTable(query, tableName);
   }
 }
 
