@@ -161,6 +161,18 @@ class AppState {
   }
 
   /**
+   * Get the type of a field
+   * @param {string} fieldName - Field name
+   * @returns {string|null} Field type or null if not found
+   */
+  getFieldType(fieldName) {
+    if (!this.schemaParser) {
+      return null;
+    }
+    return this.schemaParser.getFieldType(fieldName);
+  }
+
+  /**
    * Check if a field has a custom mapping
    * @param {string} fieldName - Field name
    * @returns {boolean} True if covered by mapping

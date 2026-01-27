@@ -380,6 +380,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // Update state
     if (isQuickMode) {
       appState.setQueryType("quick");
+      // Reset JOIN state when switching to quick mode (JOIN not supported)
+      appState.resetJoinConfig();
       // Refresh snippet dropdown when entering quick mode
       ui.refreshSnippetDropdown();
     }
@@ -670,28 +672,64 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const fieldRows = ui.getFieldRowsData();
-      if (fieldRows.length === 0 || !fieldRows[0].fieldName) {
-        alert("Please add at least one field");
-        return;
+      // Check if JOIN mode is enabled
+      if (appState.isJoinEnabled()) {
+        const joinConfig = appState.getJoinConfig();
+        const fieldRowsT1 = ui.getFieldRowsDataForTable("t1");
+        const fieldRowsT2 = ui.getFieldRowsDataForTable("t2");
+
+        // Validate fields for JOIN mode
+        const hasT1Fields = fieldRowsT1.length > 0 && fieldRowsT1[0].fieldName;
+        const hasT2Fields = fieldRowsT2.length > 0 && fieldRowsT2[0].fieldName;
+
+        if (!hasT1Fields && !hasT2Fields) {
+          alert("Please add at least one field");
+          return;
+        }
+
+        // Prompt for snippet name
+        const name = prompt("Enter a name for this snippet:");
+        if (!name || !name.trim()) {
+          return; // Cancelled or empty name
+        }
+
+        // Create snippet with JOIN config
+        const snippet = snippetManager.createFromQuery({
+          name: name.trim(),
+          queryType: appState.queryType,
+          tableName: fromData.tableName,
+          fieldRows: fieldRowsT1,
+          fieldRowsT2: fieldRowsT2,
+          conditionRows: ui.getConditionRowsData(),
+          joinConfig: joinConfig,
+        });
+
+        alert(`Snippet "${snippet.name}" saved successfully!`);
+      } else {
+        // Standard mode
+        const fieldRows = ui.getFieldRowsData();
+        if (fieldRows.length === 0 || !fieldRows[0].fieldName) {
+          alert("Please add at least one field");
+          return;
+        }
+
+        // Prompt for snippet name
+        const name = prompt("Enter a name for this snippet:");
+        if (!name || !name.trim()) {
+          return; // Cancelled or empty name
+        }
+
+        // Create snippet
+        const snippet = snippetManager.createFromQuery({
+          name: name.trim(),
+          queryType: appState.queryType,
+          tableName: fromData.tableName,
+          fieldRows: fieldRows,
+          conditionRows: ui.getConditionRowsData(),
+        });
+
+        alert(`Snippet "${snippet.name}" saved successfully!`);
       }
-
-      // Prompt for snippet name
-      const name = prompt("Enter a name for this snippet:");
-      if (!name || !name.trim()) {
-        return; // Cancelled or empty name
-      }
-
-      // Create snippet
-      const snippet = snippetManager.createFromQuery({
-        name: name.trim(),
-        queryType: appState.queryType,
-        tableName: fromData.tableName,
-        fieldRows: fieldRows,
-        conditionRows: ui.getConditionRowsData(),
-      });
-
-      alert(`Snippet "${snippet.name}" saved successfully!`);
     });
   }
 

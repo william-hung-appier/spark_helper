@@ -247,7 +247,7 @@ class UIManager {
       container: autocompleteContainer,
       getItems: () => this.state.getFieldAutocompleteItems(),
       filterItems: (query) => this.state.filterFields(query),
-      onSelect: (item) => this.handleFieldSelect(item, aliasInput),
+      onSelect: (item) => this.handleFieldSelect(item, aliasInput, fieldRow),
       placeholder: isKnownTable ? 'Type to search fields...' : 'Enter field name...',
       emptyMessage: isKnownTable ? 'No matching fields' : 'Type field name',
       allowCustom: true,
@@ -266,9 +266,49 @@ class UIManager {
    * Handle field selection from autocomplete
    * @param {object} item - Selected item
    * @param {HTMLInputElement} aliasInput - Alias input element
+   * @param {HTMLElement} fieldRow - The field row element (optional)
    */
-  handleFieldSelect(item, aliasInput) {
+  handleFieldSelect(item, aliasInput, fieldRow = null) {
     if (!item) return;
+
+    // Get the field row if not provided
+    if (!fieldRow) {
+      fieldRow = aliasInput.closest('.field-row');
+    }
+
+    // Store essential field data on the row for recovery if selectedItem is lost
+    fieldRow.dataset.fieldName = item.value;
+    fieldRow.dataset.fieldType = item.type || '';
+    fieldRow.dataset.isCustom = item.isCustom ? 'true' : 'false';
+    fieldRow.dataset.isBinary = item.isBinary ? 'true' : 'false';
+    if (item.sql) fieldRow.dataset.sql = item.sql;
+    if (item.alias) fieldRow.dataset.itemAlias = item.alias;
+
+    // Handle array operations
+    if (item.isArrayOp) {
+      this.showMatchValueInput(fieldRow, item);
+
+      // Generate alias: fieldName_subField_operation
+      const parts = [item.value];
+      if (item.subField) parts.push(item.subField);
+      parts.push(item.operation.toLowerCase());
+      aliasInput.value = parts.join('_');
+      aliasInput.disabled = false;
+
+      // Store operation info on the row
+      fieldRow.dataset.isArrayOp = 'true';
+      fieldRow.dataset.operation = item.operation;
+      fieldRow.dataset.subField = item.subField || '';
+      fieldRow.dataset.subFieldType = item.subFieldType || '';
+      return;
+    }
+
+    // Remove match value input if switching away from array op
+    this.hideMatchValueInput(fieldRow);
+    delete fieldRow.dataset.isArrayOp;
+    delete fieldRow.dataset.operation;
+    delete fieldRow.dataset.subField;
+    delete fieldRow.dataset.subFieldType;
 
     if (item.isCustom && item.alias) {
       // Custom mapping with predefined alias
@@ -282,6 +322,49 @@ class UIManager {
       aliasInput.value = baseName;
       aliasInput.disabled = false;
     }
+  }
+
+  /**
+   * Show match value input for array operations
+   * @param {HTMLElement} fieldRow - The field row element
+   * @param {object} item - The selected array operation item
+   */
+  showMatchValueInput(fieldRow, item) {
+    // Remove existing match value input if any
+    this.hideMatchValueInput(fieldRow);
+
+    // Create match value input
+    const matchInput = document.createElement('input');
+    matchInput.type = 'text';
+    matchInput.className = 'match-value-input input-field';
+
+    // Placeholder based on subfield or direct value
+    if (item.subField) {
+      matchInput.placeholder = `${item.subField} = ?`;
+    } else {
+      matchInput.placeholder = 'value...';
+    }
+
+    // Insert before AS label
+    const asLabel = fieldRow.querySelector('.as-label');
+    if (asLabel) {
+      fieldRow.insertBefore(matchInput, asLabel);
+    }
+
+    // Add visual indicator for array operation type
+    fieldRow.classList.add('field-row-array-op');
+  }
+
+  /**
+   * Hide match value input
+   * @param {HTMLElement} fieldRow - The field row element
+   */
+  hideMatchValueInput(fieldRow) {
+    const existingInput = fieldRow.querySelector('.match-value-input');
+    if (existingInput) {
+      existingInput.remove();
+    }
+    fieldRow.classList.remove('field-row-array-op');
   }
 
   /**
@@ -395,6 +478,41 @@ class UIManager {
         // Store field info on the row for later use
         conditionRow.dataset.fieldName = item.value;
         conditionRow.dataset.isBinary = item.isBinary || false;
+        conditionRow.dataset.fieldType = item.type || '';
+        conditionRow.dataset.isCustom = item.isCustom ? 'true' : 'false';
+        if (item.sql) conditionRow.dataset.sql = item.sql;
+
+        // Update type badge
+        this.updateConditionTypeBadge(conditionRow, item.type, item.isCustom);
+
+        // Handle array operation selection
+        if (item.isArrayOp) {
+          conditionRow.dataset.isArrayOp = 'true';
+          conditionRow.dataset.operation = item.operation || '';
+          conditionRow.dataset.subField = item.subField || '';
+          conditionRow.dataset.subFieldType = item.subFieldType || '';
+          conditionRow.classList.add('condition-row-array-op');
+
+          // Hide operator dropdown for array operations (always uses EXISTS pattern)
+          operatorSelect.style.display = 'none';
+
+          // Update value input placeholder
+          if (item.subField) {
+            valueInput.placeholder = `${item.subField} = ?`;
+          } else {
+            valueInput.placeholder = 'value...';
+          }
+
+          // Hide multi-value input for array ops
+          multiValueInput.style.display = 'none';
+          valueInput.style.display = 'inline-block';
+        } else {
+          // Reset for non-array operation
+          conditionRow.dataset.isArrayOp = 'false';
+          conditionRow.classList.remove('condition-row-array-op');
+          operatorSelect.style.display = 'inline-block';
+          valueInput.placeholder = 'Value';
+        }
       },
       placeholder: isKnownTable ? 'Select field...' : 'Enter field...',
       emptyMessage: isKnownTable ? 'No matching fields' : 'Type field name',
@@ -426,12 +544,78 @@ class UIManager {
   }
 
   /**
+   * Update or create a type badge in a condition row
+   * @param {HTMLElement} conditionRow - The condition row element
+   * @param {string} fieldType - The field type (integer, string, etc.)
+   * @param {boolean} isCustom - Whether this is a custom mapping
+   */
+  updateConditionTypeBadge(conditionRow, fieldType, isCustom) {
+    // Remove existing badge
+    const existingBadge = conditionRow.querySelector('.field-type-badge');
+    if (existingBadge) {
+      existingBadge.remove();
+    }
+
+    // Determine display type
+    let displayType = fieldType || 'unknown';
+    let typeClass = 'type-unknown';
+
+    if (isCustom) {
+      displayType = 'fn';
+      typeClass = 'type-custom';
+    } else if (fieldType) {
+      const lowerType = fieldType.toLowerCase();
+      if (['integer', 'int', 'long', 'double', 'float', 'decimal', 'short', 'byte'].includes(lowerType)) {
+        displayType = 'int';
+        typeClass = 'type-integer';
+      } else if (lowerType === 'binary') {
+        displayType = 'bin';
+        typeClass = 'type-binary';
+      } else if (lowerType === 'string') {
+        displayType = 'str';
+        typeClass = 'type-string';
+      } else if (lowerType.startsWith('array')) {
+        displayType = 'arr';
+        typeClass = 'type-custom';
+      } else {
+        displayType = lowerType.substring(0, 3);
+      }
+    }
+
+    // Create badge
+    const badge = document.createElement('span');
+    badge.className = `field-type-badge ${typeClass}`;
+    badge.textContent = displayType;
+    badge.title = isCustom ? 'Custom function' : (fieldType || 'Unknown type');
+
+    // Insert badge after the autocomplete container
+    const autocompleteContainer = conditionRow.querySelector('.field-condition-autocomplete-container');
+    if (autocompleteContainer) {
+      autocompleteContainer.parentNode.insertBefore(badge, autocompleteContainer.nextSibling);
+    }
+  }
+
+  /**
    * Handle query type change (standard/distinct)
    * @param {boolean} isDistinct - Whether distinct mode is enabled
    */
   handleQueryTypeChange(isDistinct) {
     this.elements.addFieldBtn.style.display = isDistinct ? 'none' : '';
     this.elements.selectHeader.textContent = isDistinct ? 'SELECT DISTINCT' : 'SELECT';
+
+    // Reset JOIN state when switching to distinct mode (JOIN not supported in distinct)
+    if (isDistinct) {
+      this.state.resetJoinConfig();
+      if (this.elements.joinToggle) {
+        this.elements.joinToggle.checked = false;
+      }
+      this.hideJoinToggle();
+    } else {
+      // Show JOIN toggle for known tables in standard mode
+      if (this.state.isKnownTable()) {
+        this.showJoinToggle();
+      }
+    }
 
     if (!isDistinct) return;
 
@@ -460,18 +644,61 @@ class UIManager {
       const fieldId = row.dataset.fieldId;
       const autocomplete = this.fieldAutocompletes.get(fieldId);
       const aliasInput = row.querySelector('.field-alias');
+      const matchValueInput = row.querySelector('.match-value-input');
 
       const selectedItem = autocomplete ? autocomplete.getSelectedItem() : null;
-      const inputValue = autocomplete ? autocomplete.getValue() : '';
 
-      return {
-        fieldName: selectedItem ? selectedItem.value : inputValue,
-        fieldType: selectedItem ? selectedItem.type : 'custom',
-        isCustom: selectedItem ? selectedItem.isCustom : true,
-        isBinary: selectedItem ? selectedItem.isBinary : false,
-        sql: selectedItem ? selectedItem.sql : null,
-        alias: aliasInput.value || (selectedItem ? selectedItem.alias : inputValue)
-      };
+      // Use row dataset as fallback when selectedItem is null
+      // This handles cases where the input was modified but data is stored on the row
+      const hasRowData = row.dataset.fieldName;
+
+      // Check if this is an array operation
+      const isArrayOp = row.dataset.isArrayOp === 'true' || (selectedItem && selectedItem.isArrayOp);
+
+      let baseData;
+      if (selectedItem) {
+        // Use selectedItem (preferred - has full data)
+        baseData = {
+          fieldName: selectedItem.value,
+          fieldType: isArrayOp ? 'array-op' : selectedItem.type,
+          isCustom: selectedItem.isCustom,
+          isBinary: selectedItem.isBinary,
+          sql: selectedItem.sql,
+          alias: aliasInput.value || selectedItem.alias || selectedItem.value
+        };
+      } else if (hasRowData) {
+        // Fallback to row dataset (stored when field was selected)
+        baseData = {
+          fieldName: row.dataset.fieldName,
+          fieldType: isArrayOp ? 'array-op' : (row.dataset.fieldType || 'custom'),
+          isCustom: row.dataset.isCustom === 'true',
+          isBinary: row.dataset.isBinary === 'true',
+          sql: row.dataset.sql || null,
+          alias: aliasInput.value || row.dataset.itemAlias || row.dataset.fieldName
+        };
+      } else {
+        // Last resort - use input value
+        const inputValue = autocomplete ? autocomplete.getValue() : '';
+        baseData = {
+          fieldName: inputValue,
+          fieldType: isArrayOp ? 'array-op' : 'custom',
+          isCustom: true,
+          isBinary: false,
+          sql: null,
+          alias: aliasInput.value || inputValue
+        };
+      }
+
+      // Add array operation specific data
+      if (isArrayOp) {
+        baseData.isArrayOp = true;
+        baseData.operation = row.dataset.operation || (selectedItem ? selectedItem.operation : null);
+        baseData.subField = row.dataset.subField || (selectedItem ? selectedItem.subField : null);
+        baseData.subFieldType = row.dataset.subFieldType || (selectedItem ? selectedItem.subFieldType : null);
+        baseData.matchValue = matchValueInput ? matchValueInput.value : '';
+      }
+
+      return baseData;
     });
   }
 
@@ -497,14 +724,61 @@ class UIManager {
         const operator = operatorSelect.value;
         const isMultiValue = operator === 'IN' || operator === 'NOT IN';
 
-        return {
-          type: 'field',
-          fieldName: selectedItem ? selectedItem.value : inputValue,
-          isBinary: selectedItem ? selectedItem.isBinary : this.state.isBinaryField(inputValue),
-          operator: operator,
-          value: isMultiValue ? null : valueInput.value,
-          values: isMultiValue ? multiValueInput.value.split('\n').filter(v => v.trim()) : null
-        };
+        // Check if this is an array operation
+        const isArrayOp = row.dataset.isArrayOp === 'true' || (selectedItem && selectedItem.isArrayOp);
+
+        // Use row dataset as fallback when selectedItem is null
+        const hasRowData = row.dataset.fieldName;
+
+        let baseData;
+        if (selectedItem) {
+          baseData = {
+            type: 'field',
+            fieldName: selectedItem.value,
+            fieldType: selectedItem.type,
+            isCustom: selectedItem.isCustom,
+            isBinary: selectedItem.isBinary,
+            sql: selectedItem.sql || null,
+            operator: operator,
+            value: isMultiValue ? null : valueInput.value,
+            values: isMultiValue ? multiValueInput.value.split('\n').filter(v => v.trim()) : null
+          };
+        } else if (hasRowData) {
+          baseData = {
+            type: 'field',
+            fieldName: row.dataset.fieldName,
+            fieldType: row.dataset.fieldType || this.state.getFieldType(row.dataset.fieldName),
+            isCustom: row.dataset.isCustom === 'true',
+            isBinary: row.dataset.isBinary === 'true',
+            sql: row.dataset.sql || null,
+            operator: operator,
+            value: isMultiValue ? null : valueInput.value,
+            values: isMultiValue ? multiValueInput.value.split('\n').filter(v => v.trim()) : null
+          };
+        } else {
+          baseData = {
+            type: 'field',
+            fieldName: inputValue,
+            fieldType: this.state.getFieldType(inputValue),
+            isCustom: false,
+            isBinary: this.state.isBinaryField(inputValue),
+            sql: null,
+            operator: operator,
+            value: isMultiValue ? null : valueInput.value,
+            values: isMultiValue ? multiValueInput.value.split('\n').filter(v => v.trim()) : null
+          };
+        }
+
+        // Add array operation specific data
+        if (isArrayOp) {
+          baseData.isArrayOp = true;
+          baseData.operation = row.dataset.operation || (selectedItem ? selectedItem.operation : null);
+          baseData.subField = row.dataset.subField || (selectedItem ? selectedItem.subField : null);
+          baseData.subFieldType = row.dataset.subFieldType || (selectedItem ? selectedItem.subFieldType : null);
+          baseData.matchValue = valueInput.value;
+        }
+
+        return baseData;
       } else {
         // Template condition (existing behavior)
         return {
@@ -708,22 +982,72 @@ class UIManager {
 
     this.elements.selectFields.appendChild(fieldRow);
 
+    // Store essential field data on the row for fallback recovery
+    if (fieldData.fieldName) {
+      fieldRow.dataset.fieldName = fieldData.fieldName;
+      fieldRow.dataset.fieldType = fieldData.fieldType || '';
+      fieldRow.dataset.isCustom = fieldData.isCustom ? 'true' : 'false';
+      fieldRow.dataset.isBinary = fieldData.isBinary ? 'true' : 'false';
+      if (fieldData.sql) fieldRow.dataset.sql = fieldData.sql;
+      if (fieldData.alias) fieldRow.dataset.itemAlias = fieldData.alias;
+    }
+
+    // Handle array operation restore
+    if (fieldData.isArrayOp) {
+      fieldRow.dataset.isArrayOp = 'true';
+      fieldRow.dataset.operation = fieldData.operation || '';
+      fieldRow.dataset.subField = fieldData.subField || '';
+      fieldRow.dataset.subFieldType = fieldData.subFieldType || '';
+
+      // Create match value input
+      const matchInput = document.createElement('input');
+      matchInput.type = 'text';
+      matchInput.className = 'match-value-input input-field';
+      matchInput.placeholder = fieldData.subField ? `${fieldData.subField} = ?` : 'value...';
+      matchInput.value = fieldData.matchValue || '';
+      fieldRow.insertBefore(matchInput, asLabel);
+      fieldRow.classList.add('field-row-array-op');
+    }
+
     // Create autocomplete for this field
     const isKnownTable = this.state.isKnownTable();
     const autocomplete = new Autocomplete({
       container: autocompleteContainer,
       getItems: () => this.state.getFieldAutocompleteItems(),
       filterItems: (query) => this.state.filterFields(query),
-      onSelect: (item) => this.handleFieldSelect(item, aliasInput),
+      onSelect: (item) => this.handleFieldSelect(item, aliasInput, fieldRow),
       placeholder: isKnownTable ? 'Type to search fields...' : 'Enter field name...',
       emptyMessage: isKnownTable ? 'No matching fields' : 'Type field name',
       allowCustom: true,
       debounceMs: 250
     });
 
-    // Set the initial value
+    // Set the initial value and restore selectedItem for proper regeneration
     if (fieldData.fieldName) {
-      autocomplete.setValue(fieldData.fieldName);
+      // Build the display label
+      let displayLabel;
+      if (fieldData.isArrayOp) {
+        displayLabel = fieldData.subField
+          ? `${fieldData.fieldName} → ${fieldData.operation}(${fieldData.subField} = ?)`
+          : `${fieldData.fieldName} → ${fieldData.operation}(= ?)`;
+      } else {
+        displayLabel = fieldData.fieldName;
+      }
+
+      // Restore the full selectedItem so regeneration works correctly
+      autocomplete.setSelectedItem({
+        value: fieldData.fieldName,
+        label: displayLabel,
+        type: fieldData.fieldType || 'custom',
+        isCustom: fieldData.isCustom || false,
+        isBinary: fieldData.isBinary || false,
+        sql: fieldData.sql || null,
+        alias: fieldData.alias || null,
+        isArrayOp: fieldData.isArrayOp || false,
+        operation: fieldData.operation || null,
+        subField: fieldData.subField || null,
+        subFieldType: fieldData.subFieldType || null
+      });
     }
 
     this.fieldAutocompletes.set(fieldId, autocomplete);
@@ -797,6 +1121,22 @@ class UIManager {
 
     this.elements.whereConditions.appendChild(conditionRow);
 
+    // Handle array operation restoration
+    if (conditionData.isArrayOp) {
+      conditionRow.dataset.isArrayOp = 'true';
+      conditionRow.dataset.operation = conditionData.operation || '';
+      conditionRow.dataset.subField = conditionData.subField || '';
+      conditionRow.dataset.subFieldType = conditionData.subFieldType || '';
+      conditionRow.classList.add('condition-row-array-op');
+
+      // Hide operator for array ops
+      operatorSelect.style.display = 'none';
+      multiValueInput.style.display = 'none';
+      valueInput.style.display = 'inline-block';
+      valueInput.value = conditionData.matchValue || conditionData.value || '';
+      valueInput.placeholder = conditionData.subField ? `${conditionData.subField} = ?` : 'value...';
+    }
+
     // Create autocomplete for field selection
     const isKnownTable = this.state.isKnownTable();
     const autocomplete = new Autocomplete({
@@ -806,6 +1146,36 @@ class UIManager {
       onSelect: (item) => {
         conditionRow.dataset.fieldName = item.value;
         conditionRow.dataset.isBinary = item.isBinary || false;
+        conditionRow.dataset.fieldType = item.type || '';
+        conditionRow.dataset.isCustom = item.isCustom ? 'true' : 'false';
+        if (item.sql) conditionRow.dataset.sql = item.sql;
+
+        // Update type badge
+        this.updateConditionTypeBadge(conditionRow, item.type, item.isCustom);
+
+        // Handle array operation selection in WHERE clause
+        if (item.isArrayOp) {
+          conditionRow.dataset.isArrayOp = 'true';
+          conditionRow.dataset.operation = item.operation || '';
+          conditionRow.dataset.subField = item.subField || '';
+          conditionRow.dataset.subFieldType = item.subFieldType || '';
+          conditionRow.classList.add('condition-row-array-op');
+
+          // Hide operator for array ops (always uses EXISTS pattern)
+          operatorSelect.style.display = 'none';
+          multiValueInput.style.display = 'none';
+          valueInput.style.display = 'inline-block';
+          valueInput.placeholder = item.subField ? `${item.subField} = ?` : 'value...';
+        } else {
+          // Reset for non-array fields
+          delete conditionRow.dataset.isArrayOp;
+          delete conditionRow.dataset.operation;
+          delete conditionRow.dataset.subField;
+          delete conditionRow.dataset.subFieldType;
+          conditionRow.classList.remove('condition-row-array-op');
+          operatorSelect.style.display = 'inline-block';
+          valueInput.placeholder = 'Value';
+        }
       },
       placeholder: isKnownTable ? 'Select field...' : 'Enter field...',
       emptyMessage: isKnownTable ? 'No matching fields' : 'Type field name',
@@ -813,9 +1183,24 @@ class UIManager {
       debounceMs: 250
     });
 
-    // Set the initial value
+    // Set the initial value and restore selectedItem for proper regeneration
     if (conditionData.fieldName) {
-      autocomplete.setValue(conditionData.fieldName);
+      // Restore the full selectedItem so regeneration works correctly
+      const fieldType = conditionData.fieldType || this.state.getFieldType(conditionData.fieldName);
+      autocomplete.setSelectedItem({
+        value: conditionData.fieldName,
+        label: conditionData.fieldName,
+        type: fieldType || 'custom',
+        isCustom: conditionData.isCustom || false,
+        isBinary: conditionData.isBinary || false,
+        isArrayOp: conditionData.isArrayOp || false,
+        operation: conditionData.operation || null,
+        subField: conditionData.subField || null,
+        subFieldType: conditionData.subFieldType || null
+      });
+
+      // Show type badge for restored condition
+      this.updateConditionTypeBadge(conditionRow, fieldType, conditionData.isCustom);
     }
 
     this.conditionFieldAutocompletes.set(conditionId, autocomplete);
@@ -1098,6 +1483,7 @@ class UIManager {
     if (this.elements.joinToggle) {
       this.elements.joinToggle.checked = false;
     }
+    this.state.resetJoinConfig();
     this.hideJoinConfig();
   }
 
@@ -1434,7 +1820,7 @@ class UIManager {
       container: autocompleteContainer,
       getItems: () => this.state.getFieldAutocompleteItemsForTable(tableName),
       filterItems: (query) => this.state.filterFieldsForTable(query, tableName),
-      onSelect: (item) => this.handleFieldSelect(item, aliasInput),
+      onSelect: (item) => this.handleFieldSelect(item, aliasInput, fieldRow),
       placeholder: 'Type to search fields...',
       emptyMessage: 'No matching fields',
       allowCustom: true,
@@ -1501,19 +1887,70 @@ class UIManager {
 
     container.appendChild(fieldRow);
 
+    // Store essential field data on the row for fallback recovery
+    if (fieldData.fieldName) {
+      fieldRow.dataset.fieldName = fieldData.fieldName;
+      fieldRow.dataset.fieldType = fieldData.fieldType || '';
+      fieldRow.dataset.isCustom = fieldData.isCustom ? 'true' : 'false';
+      fieldRow.dataset.isBinary = fieldData.isBinary ? 'true' : 'false';
+      if (fieldData.sql) fieldRow.dataset.sql = fieldData.sql;
+      if (fieldData.alias) fieldRow.dataset.itemAlias = fieldData.alias;
+    }
+
+    // Handle array operation restore
+    if (fieldData.isArrayOp) {
+      fieldRow.dataset.isArrayOp = 'true';
+      fieldRow.dataset.operation = fieldData.operation || '';
+      fieldRow.dataset.subField = fieldData.subField || '';
+      fieldRow.dataset.subFieldType = fieldData.subFieldType || '';
+
+      // Create match value input
+      const matchInput = document.createElement('input');
+      matchInput.type = 'text';
+      matchInput.className = 'match-value-input input-field';
+      matchInput.placeholder = fieldData.subField ? `${fieldData.subField} = ?` : 'value...';
+      matchInput.value = fieldData.matchValue || '';
+      fieldRow.insertBefore(matchInput, asLabel);
+      fieldRow.classList.add('field-row-array-op');
+    }
+
     const autocomplete = new Autocomplete({
       container: autocompleteContainer,
       getItems: () => this.state.getFieldAutocompleteItemsForTable(tableName),
       filterItems: (query) => this.state.filterFieldsForTable(query, tableName),
-      onSelect: (item) => this.handleFieldSelect(item, aliasInput),
+      onSelect: (item) => this.handleFieldSelect(item, aliasInput, fieldRow),
       placeholder: 'Type to search fields...',
       emptyMessage: 'No matching fields',
       allowCustom: true,
       debounceMs: 250
     });
 
+    // Set the initial value and restore selectedItem for proper regeneration
     if (fieldData.fieldName) {
-      autocomplete.setValue(fieldData.fieldName);
+      // Build the display label
+      let displayLabel;
+      if (fieldData.isArrayOp) {
+        displayLabel = fieldData.subField
+          ? `${fieldData.fieldName} → ${fieldData.operation}(${fieldData.subField} = ?)`
+          : `${fieldData.fieldName} → ${fieldData.operation}(= ?)`;
+      } else {
+        displayLabel = fieldData.fieldName;
+      }
+
+      // Restore the full selectedItem so regeneration works correctly
+      autocomplete.setSelectedItem({
+        value: fieldData.fieldName,
+        label: displayLabel,
+        type: fieldData.fieldType || 'custom',
+        isCustom: fieldData.isCustom || false,
+        isBinary: fieldData.isBinary || false,
+        sql: fieldData.sql || null,
+        alias: fieldData.alias || null,
+        isArrayOp: fieldData.isArrayOp || false,
+        operation: fieldData.operation || null,
+        subField: fieldData.subField || null,
+        subFieldType: fieldData.subFieldType || null
+      });
     }
 
     autocompleteMap.set(fieldId, autocomplete);
@@ -1539,18 +1976,60 @@ class UIManager {
       const fieldId = row.dataset.fieldId;
       const autocomplete = autocompleteMap.get(fieldId);
       const aliasInput = row.querySelector('.field-alias');
+      const matchValueInput = row.querySelector('.match-value-input');
 
       const selectedItem = autocomplete ? autocomplete.getSelectedItem() : null;
-      const inputValue = autocomplete ? autocomplete.getValue() : '';
 
-      return {
-        fieldName: selectedItem ? selectedItem.value : inputValue,
-        fieldType: selectedItem ? selectedItem.type : 'custom',
-        isCustom: selectedItem ? selectedItem.isCustom : true,
-        isBinary: selectedItem ? selectedItem.isBinary : false,
-        sql: selectedItem ? selectedItem.sql : null,
-        alias: aliasInput.value || (selectedItem ? selectedItem.alias : inputValue)
-      };
+      // Use row dataset as fallback when selectedItem is null
+      const hasRowData = row.dataset.fieldName;
+
+      // Check if this is an array operation
+      const isArrayOp = row.dataset.isArrayOp === 'true' || (selectedItem && selectedItem.isArrayOp);
+
+      let baseData;
+      if (selectedItem) {
+        // Use selectedItem (preferred - has full data)
+        baseData = {
+          fieldName: selectedItem.value,
+          fieldType: isArrayOp ? 'array-op' : selectedItem.type,
+          isCustom: selectedItem.isCustom,
+          isBinary: selectedItem.isBinary,
+          sql: selectedItem.sql,
+          alias: aliasInput.value || selectedItem.alias || selectedItem.value
+        };
+      } else if (hasRowData) {
+        // Fallback to row dataset (stored when field was selected)
+        baseData = {
+          fieldName: row.dataset.fieldName,
+          fieldType: isArrayOp ? 'array-op' : (row.dataset.fieldType || 'custom'),
+          isCustom: row.dataset.isCustom === 'true',
+          isBinary: row.dataset.isBinary === 'true',
+          sql: row.dataset.sql || null,
+          alias: aliasInput.value || row.dataset.itemAlias || row.dataset.fieldName
+        };
+      } else {
+        // Last resort - use input value
+        const inputValue = autocomplete ? autocomplete.getValue() : '';
+        baseData = {
+          fieldName: inputValue,
+          fieldType: isArrayOp ? 'array-op' : 'custom',
+          isCustom: true,
+          isBinary: false,
+          sql: null,
+          alias: aliasInput.value || inputValue
+        };
+      }
+
+      // Add array operation specific data
+      if (isArrayOp) {
+        baseData.isArrayOp = true;
+        baseData.operation = row.dataset.operation || (selectedItem ? selectedItem.operation : null);
+        baseData.subField = row.dataset.subField || (selectedItem ? selectedItem.subField : null);
+        baseData.subFieldType = row.dataset.subFieldType || (selectedItem ? selectedItem.subFieldType : null);
+        baseData.matchValue = matchValueInput ? matchValueInput.value : '';
+      }
+
+      return baseData;
     });
   }
 

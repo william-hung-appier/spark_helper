@@ -39,10 +39,28 @@ function flattenFields(fields, prefix = '') {
       // Recursively flatten struct fields
       result.push(...flattenFields(fieldType.fields, fieldName));
     } else if (fieldType.isArray && fieldType.elementFields) {
-      // For arrays of structs, flatten the element fields
+      // For arrays of structs, add the array field with element info AND flatten sub-fields
+      result.push({
+        name: fieldName,
+        type: fieldType.type,
+        isArrayStruct: true,
+        elementFields: fieldType.elementFields.map(ef => ({
+          name: ef.name,
+          type: typeof ef.type === 'string' ? ef.type : (ef.type.type || 'unknown')
+        }))
+      });
+      // Also add flattened sub-fields for direct access
       result.push(...flattenFields(fieldType.elementFields, fieldName));
+    } else if (fieldType.isArray) {
+      // Array of primitives - preserve array info
+      result.push({
+        name: fieldName,
+        type: fieldType.type,
+        isArrayPrimitive: true,
+        elementType: fieldType.elementType || 'unknown'
+      });
     } else {
-      // Simple field or array of primitives
+      // Simple field
       result.push({
         name: fieldName,
         type: fieldType.type
@@ -89,7 +107,8 @@ function parseFieldType(type) {
     return {
       type: `array<${primitiveType}>`,
       isStruct: false,
-      isArray: true
+      isArray: true,
+      elementType: primitiveType
     };
   }
 

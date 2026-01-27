@@ -138,6 +138,7 @@ class Autocomplete {
    * @param {KeyboardEvent} e - Keyboard event
    */
   handleKeydown(e) {
+    // Only select actual items (not separators)
     const items = this.dropdown.querySelectorAll('.autocomplete-item');
     const itemCount = items.length;
 
@@ -211,6 +212,15 @@ class Autocomplete {
     }
 
     items.forEach((item, index) => {
+      // Handle separators
+      if (item.isSeparator) {
+        const sep = document.createElement('li');
+        sep.className = 'autocomplete-separator';
+        sep.textContent = item.label;
+        this.dropdown.appendChild(sep);
+        return;
+      }
+
       const li = document.createElement('li');
       li.className = 'autocomplete-item';
       li.dataset.value = item.value;
@@ -221,13 +231,34 @@ class Autocomplete {
       if (item.sql) li.dataset.sql = item.sql;
       if (item.alias) li.dataset.alias = item.alias;
 
+      // Array operation specific data
+      if (item.isArrayOp) {
+        li.dataset.isArrayOp = 'true';
+        li.dataset.operation = item.operation || '';
+        li.dataset.subField = item.subField || '';
+        li.dataset.subFieldType = item.subFieldType || '';
+        li.dataset.outputType = item.outputType || '';
+        li.classList.add('autocomplete-item-array-op');
+      }
+
+      // Raw array indicator
+      if (item.isRawArray) {
+        li.dataset.isRawArray = 'true';
+      }
+
       // Create label with type indicator
       const labelSpan = document.createElement('span');
       labelSpan.className = 'autocomplete-item-label';
-      labelSpan.textContent = item.label;
+      labelSpan.textContent = item.displayLabel || item.label;
       li.appendChild(labelSpan);
 
-      if (item.type && item.type !== 'custom') {
+      // Type badge
+      if (item.isArrayOp) {
+        const typeSpan = document.createElement('span');
+        typeSpan.className = 'autocomplete-item-type autocomplete-item-array-op-type';
+        typeSpan.textContent = item.outputType || 'op';
+        li.appendChild(typeSpan);
+      } else if (item.type && item.type !== 'custom' && item.type !== 'array-op') {
         const typeSpan = document.createElement('span');
         typeSpan.className = 'autocomplete-item-type';
         typeSpan.textContent = item.type;
@@ -272,7 +303,14 @@ class Autocomplete {
       isCustom: itemData.isCustom === 'true',
       isBinary: itemData.isBinary === 'true',
       sql: itemData.sql,
-      alias: itemData.alias
+      alias: itemData.alias,
+      // Array operation specific fields
+      isArrayOp: itemData.isArrayOp === 'true',
+      operation: itemData.operation || null,
+      subField: itemData.subField || null,
+      subFieldType: itemData.subFieldType || null,
+      outputType: itemData.outputType || null,
+      isRawArray: itemData.isRawArray === 'true'
     };
     this.close();
     this.onSelect(this.selectedItem);
@@ -298,10 +336,25 @@ class Autocomplete {
   /**
    * Set the input value programmatically
    * @param {string} value - Value to set
+   * @param {object} item - Optional item data to restore selectedItem
    */
-  setValue(value) {
+  setValue(value, item = null) {
     this.currentValue = value;
     this.input.value = value;
+    if (item) {
+      this.selectedItem = item;
+    }
+  }
+
+  /**
+   * Set the selected item and update display
+   * @param {object} item - Item data to set
+   */
+  setSelectedItem(item) {
+    if (!item) return;
+    this.selectedItem = item;
+    this.currentValue = item.value;
+    this.input.value = item.label || item.value;
   }
 
   /**

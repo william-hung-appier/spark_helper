@@ -96,7 +96,7 @@ class QueryBuilder {
 
   /**
    * Build SELECT part for a single field
-   * Handles custom mappings, binary fields, and regular fields
+   * Handles custom mappings, binary fields, array operations, and regular fields
    * @param {object} fieldData - Field data from UI
    * @returns {string|null} SQL SELECT expression or null
    */
@@ -104,6 +104,11 @@ class QueryBuilder {
     const { fieldName, fieldType, isCustom, isBinary, sql, alias } = fieldData;
 
     if (!fieldName) return null;
+
+    // Handle array operations
+    if (fieldData.isArrayOp || fieldType === 'array-op') {
+      return this.buildArrayOperationSelect(fieldData);
+    }
 
     // Custom mapping with predefined SQL (e.g., oid, channel)
     if (isCustom && sql) {
@@ -127,6 +132,63 @@ class QueryBuilder {
   }
 
   /**
+   * Build SELECT part for array operations (EXISTS, COUNT, FILTER)
+   * @param {object} fieldData - Field data with array operation info
+   * @param {string} prefix - Optional table prefix (t1, t2) for JOIN mode
+   * @returns {string|null} SQL SELECT expression or null
+   */
+  buildArrayOperationSelect(fieldData, prefix = null) {
+    const { fieldName, operation, subField, subFieldType, matchValue, alias } = fieldData;
+
+    if (!fieldName || !operation || !matchValue) return null;
+
+    const escapedValue = this.escapeSqlString(matchValue);
+    const prefixedField = prefix ? `${prefix}.${fieldName}` : fieldName;
+
+    // Determine value quoting based on type
+    const isNumericType = subFieldType && ['integer', 'long', 'double', 'float', 'int'].includes(subFieldType.toLowerCase());
+    const quotedValue = isNumericType ? escapedValue : `'${escapedValue}'`;
+
+    // Build the lambda expression
+    const lambda = subField
+      ? `x -> x.${subField} = ${quotedValue}`   // struct array: x.action_id = 'value'
+      : `x -> x = ${quotedValue}`;               // primitive array: x = 7
+
+    const finalAlias = alias || this.generateArrayOpAlias(fieldName, subField, operation);
+
+    switch (operation) {
+      case 'EXISTS':
+        // IF(EXISTS(arms, x -> x.action_id = 'value'), 1, 0) AS alias
+        return `  IF(EXISTS(${prefixedField}, ${lambda}), 1, 0) AS ${finalAlias}`;
+
+      case 'COUNT':
+        // SIZE(FILTER(arms, x -> x.action_id = 'value')) AS alias
+        return `  SIZE(FILTER(${prefixedField}, ${lambda})) AS ${finalAlias}`;
+
+      case 'FILTER':
+        // FILTER(arms, x -> x.action_id = 'value') AS alias
+        return `  FILTER(${prefixedField}, ${lambda}) AS ${finalAlias}`;
+
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Generate default alias for array operations
+   * @param {string} fieldName - Array field name
+   * @param {string} subField - Sub-field name (null for primitive arrays)
+   * @param {string} operation - Operation (EXISTS, COUNT, FILTER)
+   * @returns {string} Generated alias
+   */
+  generateArrayOpAlias(fieldName, subField, operation) {
+    const parts = [fieldName];
+    if (subField) parts.push(subField);
+    parts.push(operation.toLowerCase());
+    return parts.join('_');
+  }
+
+  /**
    * Get base name from a potentially dotted field name
    * @param {string} fieldName - Field name
    * @returns {string} Base name
@@ -143,6 +205,28 @@ class QueryBuilder {
   escapeSqlString(value) {
     if (value == null) return '';
     return String(value).replace(/'/g, "''");
+  }
+
+  /**
+   * Check if a field type is numeric (should not be quoted in SQL)
+   * @param {string} fieldType - Field type from schema
+   * @returns {boolean} True if numeric type
+   */
+  isNumericType(fieldType) {
+    if (!fieldType) return false;
+    const numericTypes = ['integer', 'int', 'long', 'double', 'float', 'decimal', 'short', 'byte'];
+    return numericTypes.includes(fieldType.toLowerCase());
+  }
+
+  /**
+   * Check if a value looks numeric (can be safely used without quotes)
+   * @param {string} value - Value to check
+   * @returns {boolean} True if value looks numeric
+   */
+  isNumericValue(value) {
+    if (value == null || value === '') return false;
+    // Match integers, decimals, negative numbers, scientific notation
+    return /^-?\d+\.?\d*([eE][+-]?\d+)?$/.test(String(value).trim());
   }
 
   /**
@@ -175,32 +259,89 @@ class QueryBuilder {
   /**
    * Build SQL for a field-based condition
    * @param {object} conditionData - Field condition data
+   * @param {string} prefix - Optional table prefix for JOIN mode
    * @returns {string|null} SQL WHERE expression or null
    */
-  buildFieldCondition(conditionData) {
-    const { fieldName, isBinary, operator, value, values } = conditionData;
+  buildFieldCondition(conditionData, prefix = null) {
+    const { fieldName, fieldType, isBinary, operator, value, values, sql, isCustom } = conditionData;
 
     if (!fieldName) return null;
 
-    // Determine the field expression (wrap binary fields with BYTES2STR)
-    const isBinaryField = isBinary || this.state.isBinaryField(fieldName);
-    const fieldExpr = isBinaryField ? `BYTES2STR(${fieldName})` : fieldName;
+    // Handle array operation conditions
+    if (conditionData.isArrayOp) {
+      return this.buildArrayOperationCondition(conditionData, prefix);
+    }
+
+    // Determine the field expression
+    let fieldExpr;
+    if (isCustom && sql) {
+      // Use custom SQL expression (e.g., NVL(PARTNERID2STR(partner_id), ''))
+      // For custom functions, don't add prefix - they already reference the correct field
+      fieldExpr = sql;
+    } else {
+      // Regular field - wrap binary fields with BYTES2STR, add prefix if needed
+      const isBinaryField = isBinary || this.state.isBinaryField(fieldName);
+      const prefixedField = prefix ? `${prefix}.${fieldName}` : fieldName;
+      fieldExpr = isBinaryField ? `BYTES2STR(${prefixedField})` : prefixedField;
+    }
+
+    // For custom functions that return strings, always quote values
+    // For schema fields, check the type
+    const resolvedType = fieldType || this.state.getFieldType(fieldName);
+    // Custom functions typically return strings, so treat them as non-numeric
+    const isNumericField = !isCustom && this.isNumericType(resolvedType);
 
     if (operator === '=') {
       if (!value && value !== 0) return null;
       const escapedValue = this.escapeSqlString(value);
-      return `  ${fieldExpr} = '${escapedValue}'`;
+      // Only skip quotes if field is numeric AND value is numeric
+      const shouldQuote = !(isNumericField && this.isNumericValue(value));
+      const formattedValue = shouldQuote ? `'${escapedValue}'` : escapedValue;
+      return `  ${fieldExpr} = ${formattedValue}`;
     }
 
     if (operator === 'IN' || operator === 'NOT IN') {
       if (!values || values.length === 0) return null;
       const escapedValues = values
-        .map(v => `'${this.escapeSqlString(v.trim())}'`)
+        .map(v => {
+          const escaped = this.escapeSqlString(v.trim());
+          // Only skip quotes if field is numeric AND this value is numeric
+          const shouldQuote = !(isNumericField && this.isNumericValue(v.trim()));
+          return shouldQuote ? `'${escaped}'` : escaped;
+        })
         .join(', ');
       return `  ${fieldExpr} ${operator} (${escapedValues})`;
     }
 
     return null;
+  }
+
+  /**
+   * Build WHERE condition for array operations (EXISTS pattern)
+   * @param {object} conditionData - Condition data with array operation info
+   * @param {string} prefix - Optional table prefix for JOIN mode
+   * @returns {string|null} SQL WHERE expression or null
+   */
+  buildArrayOperationCondition(conditionData, prefix = null) {
+    const { fieldName, operation, subField, subFieldType, matchValue, value } = conditionData;
+    const matchVal = matchValue || value;
+
+    if (!fieldName || !matchVal) return null;
+
+    const escapedValue = this.escapeSqlString(matchVal);
+    const prefixedField = prefix ? `${prefix}.${fieldName}` : fieldName;
+
+    // Determine value quoting based on type
+    const isNumericType = subFieldType && ['integer', 'long', 'double', 'float', 'int'].includes(subFieldType.toLowerCase());
+    const quotedValue = isNumericType ? escapedValue : `'${escapedValue}'`;
+
+    // Build the lambda expression
+    const lambda = subField
+      ? `x -> x.${subField} = ${quotedValue}`   // struct array
+      : `x -> x = ${quotedValue}`;               // primitive array
+
+    // For WHERE clause, always use EXISTS pattern (no IF wrapper needed)
+    return `  EXISTS(${prefixedField}, ${lambda})`;
   }
 
   /**
@@ -235,13 +376,65 @@ class QueryBuilder {
   }
 
   /**
+   * Resolve field expression for JOIN ON clause
+   * Handles custom mappings by extracting SQL and prefixing field references
+   * @param {string} fieldName - Field name (may be custom mapping key)
+   * @param {string} tableName - Table name to check for custom mappings
+   * @param {string} alias - Table alias (t1 or t2)
+   * @returns {string} SQL expression for the field
+   */
+  resolveOnFieldExpression(fieldName, tableName, alias) {
+    // Check if this field has a custom mapping for the table
+    const mappings = TABLE_MAPPINGS[tableName];
+    const customField = mappings?.fields?.[fieldName];
+
+    if (customField && customField.sql) {
+      // Custom mapping found - prefix field references in the SQL
+      // e.g., "BYTES2STR(bid_appier_id)" -> "BYTES2STR(t1.bid_appier_id)"
+      const sql = customField.sql;
+
+      // Extract field names from the SQL and prefix them
+      // This handles patterns like: BYTES2STR(field), CID2OID(field), NVL(field, '')
+      const prefixedSql = sql.replace(
+        /\b([a-z_][a-z0-9_]*)\b(?=\s*[,)])/gi,
+        (match, field) => {
+          // Don't prefix SQL keywords, function names, or string literals
+          const upperMatch = match.toUpperCase();
+          const sqlKeywords = ['NULL', 'AS', 'AND', 'OR', 'NOT', 'IN', 'IS', 'LIKE', 'BETWEEN', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END'];
+          const sparkFunctions = ['BYTES2STR', 'CID2OID', 'NVL', 'COALESCE', 'IF', 'CONCAT', 'SUBSTR', 'TRIM', 'UPPER', 'LOWER', 'APPTYPE2NAME', 'PARTNERID2STR', 'OS2STR'];
+
+          if (sqlKeywords.includes(upperMatch) || sparkFunctions.includes(upperMatch)) {
+            return match;
+          }
+          return `${alias}.${field}`;
+        }
+      );
+
+      return prefixedSql;
+    }
+
+    // Check if the field is binary and needs BYTES2STR wrapping
+    const isBinary = this.state.schemaParser?.isBinaryFieldForTable(fieldName, tableName);
+    if (isBinary) {
+      return `BYTES2STR(${alias}.${fieldName})`;
+    }
+
+    // Regular field - just prefix with alias
+    return `${alias}.${fieldName}`;
+  }
+
+  /**
    * Build ON clause for JOIN
    * @param {string} field1 - Field from first table
    * @param {string} field2 - Field from second table
+   * @param {string} table1 - First table name (for custom mapping lookup)
+   * @param {string} table2 - Second table name (for custom mapping lookup)
    * @returns {string} ON clause
    */
-  buildOnClause(field1, field2) {
-    return `ON t1.${field1} = t2.${field2}`;
+  buildOnClause(field1, field2, table1, table2) {
+    const expr1 = this.resolveOnFieldExpression(field1, table1, 't1');
+    const expr2 = this.resolveOnFieldExpression(field2, table2, 't2');
+    return `ON ${expr1} = ${expr2}`;
   }
 
   /**
@@ -287,8 +480,8 @@ class QueryBuilder {
     // Build JOIN clause
     const joinClause = this.buildJoinClause(joinType, table2, startTime, endTime, timezone, 't2');
 
-    // Build ON clause
-    const onClause = this.buildOnClause(onField1, onField2);
+    // Build ON clause with custom field resolution
+    const onClause = this.buildOnClause(onField1, onField2, table1, table2);
 
     // Assemble query
     let query = isDistinct ? 'SELECT DISTINCT\n' : 'SELECT\n';
@@ -321,6 +514,11 @@ class QueryBuilder {
     const { fieldName, fieldType, isCustom, isBinary, sql, alias } = fieldData;
 
     if (!fieldName) return null;
+
+    // Handle array operations with prefix
+    if (fieldData.isArrayOp || fieldType === 'array-op') {
+      return this.buildArrayOperationSelect(fieldData, prefix);
+    }
 
     // Custom mapping with predefined SQL
     if (isCustom && sql) {
@@ -360,24 +558,52 @@ class QueryBuilder {
 
     // Handle field-based conditions with prefix
     if (conditionData.type === 'field') {
-      const { fieldName, tablePrefix, isBinary, operator, value, values } = conditionData;
+      const { fieldName, fieldType, tablePrefix, isBinary, operator, value, values, sql, isCustom } = conditionData;
 
       if (!fieldName) return null;
 
       const prefix = tablePrefix || 't1';
-      const prefixedField = `${prefix}.${fieldName}`;
-      const fieldExpr = isBinary ? `BYTES2STR(${prefixedField})` : prefixedField;
+
+      // Handle array operation conditions
+      if (conditionData.isArrayOp) {
+        return this.buildArrayOperationCondition(conditionData, prefix);
+      }
+
+      // Determine the field expression
+      let fieldExpr;
+      if (isCustom && sql) {
+        // Use custom SQL expression (e.g., NVL(PARTNERID2STR(partner_id), ''))
+        // For custom functions, don't add prefix - they already reference the correct field
+        fieldExpr = sql;
+      } else {
+        // Regular field - wrap binary fields with BYTES2STR, add prefix
+        const prefixedField = `${prefix}.${fieldName}`;
+        fieldExpr = isBinary ? `BYTES2STR(${prefixedField})` : prefixedField;
+      }
+
+      // For custom functions that return strings, always quote values
+      // For schema fields, check the type
+      const resolvedType = fieldType || this.state.getFieldType(fieldName);
+      const isNumericField = !isCustom && this.isNumericType(resolvedType);
 
       if (operator === '=') {
         if (!value && value !== 0) return null;
         const escapedValue = this.escapeSqlString(value);
-        return `  ${fieldExpr} = '${escapedValue}'`;
+        // Only skip quotes if field is numeric AND value is numeric
+        const shouldQuote = !(isNumericField && this.isNumericValue(value));
+        const formattedValue = shouldQuote ? `'${escapedValue}'` : escapedValue;
+        return `  ${fieldExpr} = ${formattedValue}`;
       }
 
       if (operator === 'IN' || operator === 'NOT IN') {
         if (!values || values.length === 0) return null;
         const escapedValues = values
-          .map(v => `'${this.escapeSqlString(v.trim())}'`)
+          .map(v => {
+            const escaped = this.escapeSqlString(v.trim());
+            // Only skip quotes if field is numeric AND this value is numeric
+            const shouldQuote = !(isNumericField && this.isNumericValue(v.trim()));
+            return shouldQuote ? `'${escaped}'` : escaped;
+          })
           .join(', ');
         return `  ${fieldExpr} ${operator} (${escapedValues})`;
       }

@@ -102,24 +102,36 @@ class SnippetManager {
    * @param {string} config.name - Snippet name
    * @param {string} config.queryType - Query type (standard/distinct)
    * @param {string} config.tableName - Table name
-   * @param {Array} config.fieldRows - SELECT field rows data
+   * @param {Array} config.fieldRows - SELECT field rows data (or T1 fields in JOIN mode)
+   * @param {Array} [config.fieldRowsT2] - T2 field rows data (JOIN mode only)
    * @param {Array} config.conditionRows - WHERE condition rows data
+   * @param {object} [config.joinConfig] - JOIN configuration (JOIN mode only)
    * @returns {object} Saved snippet
    */
   createFromQuery(config) {
-    const { name, queryType, tableName, fieldRows, conditionRows } = config;
+    const { name, queryType, tableName, fieldRows, fieldRowsT2, conditionRows, joinConfig } = config;
 
     // Generate preview (first 100 chars of a simplified query representation)
-    const preview = this._generatePreview(queryType, tableName, fieldRows);
+    const preview = joinConfig
+      ? this._generateJoinPreview(queryType, tableName, joinConfig.table2, fieldRows, fieldRowsT2)
+      : this._generatePreview(queryType, tableName, fieldRows);
 
-    return this.save({
+    const snippetData = {
       name,
       queryType,
       tableName,
       fieldRows,
       conditionRows,
       preview
-    });
+    };
+
+    // Add JOIN-specific data if present
+    if (joinConfig) {
+      snippetData.joinConfig = joinConfig;
+      snippetData.fieldRowsT2 = fieldRowsT2 || [];
+    }
+
+    return this.save(snippetData);
   }
 
   /**
@@ -137,6 +149,33 @@ class SnippetManager {
       .join(', ');
 
     const preview = `${selectKeyword}\n  ${fields}\nFROM\n  ${tableName}`;
+
+    return preview.length > 100 ? preview.substring(0, 97) + '...' : preview;
+  }
+
+  /**
+   * Generate a preview string for a JOIN snippet
+   * @param {string} queryType - Query type
+   * @param {string} table1 - First table name
+   * @param {string} table2 - Second table name
+   * @param {Array} fieldRowsT1 - T1 field rows data
+   * @param {Array} fieldRowsT2 - T2 field rows data
+   * @returns {string} Preview string (max 100 chars)
+   */
+  _generateJoinPreview(queryType, table1, table2, fieldRowsT1, fieldRowsT2) {
+    const selectKeyword = queryType === 'distinct' ? 'SELECT DISTINCT' : 'SELECT';
+
+    const t1Fields = (fieldRowsT1 || [])
+      .map(row => `t1.${row.alias || row.fieldName}`)
+      .filter(f => f !== 't1.');
+
+    const t2Fields = (fieldRowsT2 || [])
+      .map(row => `t2.${row.alias || row.fieldName}`)
+      .filter(f => f !== 't2.');
+
+    const allFields = [...t1Fields, ...t2Fields].join(', ');
+
+    const preview = `${selectKeyword}\n  ${allFields}\nFROM ${table1} t1 JOIN ${table2} t2`;
 
     return preview.length > 100 ? preview.substring(0, 97) + '...' : preview;
   }

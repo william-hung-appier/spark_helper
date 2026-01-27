@@ -75,7 +75,9 @@ const IMP_JOIN_ALL2_SCHEMA = {
     },
     {
       "name": "categories",
-      "type": "array<integer>"
+      "type": "array<integer>",
+      "isArrayPrimitive": true,
+      "elementType": "integer"
     },
     {
       "name": "page",
@@ -131,7 +133,9 @@ const IMP_JOIN_ALL2_SCHEMA = {
     },
     {
       "name": "lang",
-      "type": "array<integer>"
+      "type": "array<integer>",
+      "isArrayPrimitive": true,
+      "elementType": "integer"
     },
     {
       "name": "pf_appier",
@@ -179,7 +183,9 @@ const IMP_JOIN_ALL2_SCHEMA = {
     },
     {
       "name": "imp_supported_api",
-      "type": "array<integer>"
+      "type": "array<integer>",
+      "isArrayPrimitive": true,
+      "elementType": "integer"
     },
     {
       "name": "bid_appier_id",
@@ -311,7 +317,9 @@ const IMP_JOIN_ALL2_SCHEMA = {
     },
     {
       "name": "deals",
-      "type": "array<binary>"
+      "type": "array<binary>",
+      "isArrayPrimitive": true,
+      "elementType": "binary"
     },
     {
       "name": "bidding_alg_info",
@@ -356,6 +364,85 @@ const IMP_JOIN_ALL2_SCHEMA = {
     {
       "name": "auction_type",
       "type": "integer"
+    },
+    {
+      "name": "actions",
+      "type": "array<struct>",
+      "isArrayStruct": true,
+      "elementFields": [
+        {
+          "name": "unique_user_id",
+          "type": "string"
+        },
+        {
+          "name": "action_id",
+          "type": "string"
+        },
+        {
+          "name": "purchase_currency",
+          "type": "string"
+        },
+        {
+          "name": "postback_time",
+          "type": "integer"
+        },
+        {
+          "name": "revenue_usd_appier",
+          "type": "double"
+        },
+        {
+          "name": "invalid_reason",
+          "type": "string"
+        },
+        {
+          "name": "x_invalid_reason",
+          "type": "string"
+        },
+        {
+          "name": "x_invalid_sub_reason",
+          "type": "string"
+        },
+        {
+          "name": "pub_id",
+          "type": "string"
+        },
+        {
+          "name": "subpub_id",
+          "type": "string"
+        },
+        {
+          "name": "appier_nonce",
+          "type": "string"
+        },
+        {
+          "name": "x_click_timestamp",
+          "type": "long"
+        },
+        {
+          "name": "x_impression_timestamp",
+          "type": "long"
+        },
+        {
+          "name": "x_install_timestamp",
+          "type": "long"
+        },
+        {
+          "name": "match_type",
+          "type": "string"
+        },
+        {
+          "name": "log_type",
+          "type": "string"
+        },
+        {
+          "name": "x_conversion_timestamp",
+          "type": "long"
+        },
+        {
+          "name": "scenario_type",
+          "type": "string"
+        }
+      ]
     },
     {
       "name": "actions.unique_user_id",
@@ -631,7 +718,9 @@ const IMP_JOIN_ALL2_SCHEMA = {
     },
     {
       "name": "skadn_request_versions",
-      "type": "array<string>"
+      "type": "array<string>",
+      "isArrayPrimitive": true,
+      "elementType": "string"
     },
     {
       "name": "imps",
@@ -647,15 +736,38 @@ const IMP_JOIN_ALL2_SCHEMA = {
     },
     {
       "name": "log_types",
-      "type": "array<string>"
+      "type": "array<string>",
+      "isArrayPrimitive": true,
+      "elementType": "string"
     },
     {
       "name": "audience_list",
-      "type": "array<string>"
+      "type": "array<string>",
+      "isArrayPrimitive": true,
+      "elementType": "string"
     },
     {
       "name": "payment_id_chain",
       "type": "string"
+    },
+    {
+      "name": "arms",
+      "type": "array<struct>",
+      "isArrayStruct": true,
+      "elementFields": [
+        {
+          "name": "action_id",
+          "type": "string"
+        },
+        {
+          "name": "api",
+          "type": "integer"
+        },
+        {
+          "name": "postback_time",
+          "type": "long"
+        }
+      ]
     },
     {
       "name": "arms.action_id",
@@ -676,6 +788,33 @@ const IMP_JOIN_ALL2_SCHEMA = {
     {
       "name": "auction_result",
       "type": "string"
+    },
+    {
+      "name": "losing_bids",
+      "type": "array<struct>",
+      "isArrayStruct": true,
+      "elementFields": [
+        {
+          "name": "cid",
+          "type": "string"
+        },
+        {
+          "name": "price_appier",
+          "type": "double"
+        },
+        {
+          "name": "mmp_imp_tracker_location",
+          "type": "string"
+        },
+        {
+          "name": "mmp_click_tracker_location",
+          "type": "string"
+        },
+        {
+          "name": "is_ghost_ads",
+          "type": "boolean"
+        }
+      ]
     },
     {
       "name": "losing_bids.cid",
@@ -711,7 +850,9 @@ const IMP_JOIN_ALL2_SCHEMA = {
     },
     {
       "name": "skadn_fidelities",
-      "type": "array<integer>"
+      "type": "array<integer>",
+      "isArrayPrimitive": true,
+      "elementType": "integer"
     },
     {
       "name": "skoverlay.video_delay",
@@ -728,6 +869,25 @@ const IMP_JOIN_ALL2_SCHEMA = {
     {
       "name": "skadn_source_identifier",
       "type": "string"
+    },
+    {
+      "name": "topics",
+      "type": "array<struct>",
+      "isArrayStruct": true,
+      "elementFields": [
+        {
+          "name": "id",
+          "type": "integer"
+        },
+        {
+          "name": "taxonomy_version",
+          "type": "string"
+        },
+        {
+          "name": "classifier_version",
+          "type": "string"
+        }
+      ]
     },
     {
       "name": "topics.id",
@@ -751,7 +911,28 @@ const IMP_JOIN_ALL2_SCHEMA = {
     },
     {
       "name": "bcat",
-      "type": "array<string>"
+      "type": "array<string>",
+      "isArrayPrimitive": true,
+      "elementType": "string"
+    },
+    {
+      "name": "mmp_trackings",
+      "type": "array<struct>",
+      "isArrayStruct": true,
+      "elementFields": [
+        {
+          "name": "time",
+          "type": "long"
+        },
+        {
+          "name": "ip",
+          "type": "string"
+        },
+        {
+          "name": "mmp_event",
+          "type": "string"
+        }
+      ]
     },
     {
       "name": "mmp_trackings.time",
@@ -764,6 +945,17 @@ const IMP_JOIN_ALL2_SCHEMA = {
     {
       "name": "mmp_trackings.mmp_event",
       "type": "string"
+    },
+    {
+      "name": "supply_chain.nodes",
+      "type": "array<struct>",
+      "isArrayStruct": true,
+      "elementFields": [
+        {
+          "name": "asi",
+          "type": "string"
+        }
+      ]
     },
     {
       "name": "supply_chain.nodes.asi",

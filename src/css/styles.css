@@ -1535,3 +1535,161 @@ select.input-field:hover {
 [data-theme="dark"] .modal-backdrop {
   background-color: rgba(0, 0, 0, 0.7);
 }
+
+/* ============================================
+   Array Operation Styles
+   ============================================ */
+
+/* Autocomplete Separator */
+.autocomplete-separator {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: var(--color-bg-tertiary);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  cursor: default;
+  user-select: none;
+}
+
+/* Array Operation Items in Dropdown */
+.autocomplete-item-array-op {
+  padding-left: var(--space-lg);
+}
+
+.autocomplete-item-array-op .autocomplete-item-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.autocomplete-item-array-op:hover .autocomplete-item-label,
+.autocomplete-item-array-op.highlighted .autocomplete-item-label {
+  color: var(--color-text-primary);
+}
+
+.autocomplete-item-array-op-type {
+  background-color: var(--color-accent-light);
+  color: var(--color-accent);
+  font-size: 10px;
+}
+
+/* Match Value Input */
+.match-value-input {
+  flex: 1;
+  min-width: 100px;
+  max-width: 150px;
+  font-size: 12px;
+}
+
+.match-value-input::placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Field Row with Array Operation */
+.field-row-array-op {
+  border-left: 3px solid var(--color-accent);
+  background-color: var(--color-accent-light);
+}
+
+.field-row-array-op:hover {
+  background-color: rgba(6, 182, 212, 0.15);
+}
+
+/* Condition Row with Array Operation */
+.condition-row-array-op {
+  border-left: 3px solid var(--color-accent);
+  background-color: var(--color-accent-light);
+}
+
+.condition-row-array-op:hover {
+  background-color: rgba(6, 182, 212, 0.15);
+}
+
+/* Adjust field autocomplete container width for array ops */
+.field-row-array-op .field-autocomplete-container {
+  max-width: 260px;
+}
+
+/* Responsive adjustments for array operations */
+@media (min-width: 520px) {
+  .match-value-input {
+    max-width: 180px;
+  }
+
+  .field-row-array-op .field-autocomplete-container {
+    max-width: 300px;
+  }
+}
+
+@media (min-width: 768px) {
+  .match-value-input {
+    max-width: 200px;
+  }
+
+  .field-row-array-op .field-autocomplete-container {
+    max-width: 350px;
+  }
+}
+
+/* Field Type Badge */
+.field-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.field-type-badge.type-int,
+.field-type-badge.type-integer,
+.field-type-badge.type-long,
+.field-type-badge.type-double,
+.field-type-badge.type-float {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+[data-theme="dark"] .field-type-badge.type-int,
+[data-theme="dark"] .field-type-badge.type-integer,
+[data-theme="dark"] .field-type-badge.type-long,
+[data-theme="dark"] .field-type-badge.type-double,
+[data-theme="dark"] .field-type-badge.type-float {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.field-type-badge.type-string,
+.field-type-badge.type-binary {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+}
+
+[data-theme="dark"] .field-type-badge.type-string,
+[data-theme="dark"] .field-type-badge.type-binary {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.field-type-badge.type-custom {
+  background-color: rgba(168, 85, 247, 0.15);
+  color: #9333ea;
+}
+
+[data-theme="dark"] .field-type-badge.type-custom {
+  background-color: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+}
+
+.field-type-badge.type-unknown {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+}
