@@ -1,6 +1,8 @@
 # Appier Spark Helper
 
-A Chrome extension that helps generate Spark SQL queries with a visual query builder interface. Supports multiple tables with searchable field selection and predefined UDFs.
+A Chrome extension and macOS app that helps generate Spark SQL queries with a visual query builder interface. Supports multiple tables with searchable field selection and predefined UDFs.
+
+The macOS app provides the same functionality for browsers that don't support Chrome's Side Panel API (e.g., Arc).
 
 ## Features
 
@@ -39,14 +41,33 @@ npm install
 node scripts/generate-schemas.js
 ```
 
-### Step 3: Load in Chrome
+### Step 3a: Load in Chrome (Extension)
 
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable **Developer mode** using the toggle in the top-right corner
 3. Click **Load unpacked** button
 4. Select the `spark_helper` folder (the one containing `manifest.json`)
 
-### Step 4: Pin the Extension (Optional)
+### Step 3b: Build macOS App (for Arc/other browsers)
+
+Prerequisites (one-time):
+
+```bash
+mise use rust@latest
+cargo install tauri-cli
+```
+
+Build the app:
+
+```bash
+make tauri-build
+```
+
+The app will be at `src-tauri/target/release/bundle/macos/Spark Helper.app`
+
+Double-click to run, or drag to Applications folder.
+
+### Step 4: Pin the Extension (Optional, Chrome only)
 
 1. Click the puzzle piece icon in Chrome's toolbar
 2. Find "Appier Spark Helper" and click the pin icon
@@ -79,13 +100,15 @@ To fetch the latest schema definitions from the upstream repository:
 make update-spark-schema
 ```
 
-## Available Make Commands
+## Available Commands
 
 ```bash
 make help                # Show available commands
 make setup               # Initial setup (for new clones)
 make update-spark-schema # Update schemas from submodule
 make generate-schemas    # Regenerate JS from existing YAML
+make tauri-dev           # Run macOS app in development mode
+make tauri-build         # Build macOS app for distribution
 ```
 
 ## Custom Field Mappings
@@ -117,13 +140,16 @@ const IMP_JOIN_ALL2_MAPPINGS = {
 ## Troubleshooting
 
 ### Extension not appearing after installation
+
 - Make sure Developer mode is enabled
 - Verify you selected the correct folder containing `manifest.json`
 
 ### Schemas not generating
+
 - Ensure the schemas submodule is initialized: `git submodule update --init`
 - Check that Node.js is installed and `npm install` was run
 
 ### Reloading after updates
+
 1. Go to `chrome://extensions/`
 2. Click the reload icon on the Appier Spark Helper card

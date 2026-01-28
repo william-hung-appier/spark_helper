@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Chrome extension (Manifest v3) that helps generate Spark SQL queries for multiple tables. It provides a visual query builder interface with searchable field selection, predefined field mappings, and automatic binary field handling.
+This is a Chrome extension (Manifest v3) and standalone macOS app that helps generate Spark SQL queries for multiple tables. It provides a visual query builder interface with searchable field selection, predefined field mappings, and automatic binary field handling.
+
+The macOS app (built with Tauri) provides the same functionality for browsers that don't support Chrome's Side Panel API (e.g., Arc).
 
 ## Supported Tables
 
@@ -19,7 +21,7 @@ This is a Chrome extension (Manifest v3) that helps generate Spark SQL queries f
 ```text
 spark_helper/
 ├── manifest.json           # Extension configuration (Manifest v3)
-├── popup.html              # UI interface definition
+├── sidepanel.html          # UI interface definition
 ├── package.json            # NPM config for build scripts
 ├── Makefile                # Build commands
 ├── scripts/
@@ -37,21 +39,17 @@ spark_helper/
 │   │   ├── quickQueries.js # Quick Query templates configuration
 │   │   ├── joinKeys.js     # Common join key definitions
 │   │   ├── schemas/        # Auto-generated schema JS files
-│   │   │   ├── index.js
-│   │   │   ├── imp_join_all2.js
-│   │   │   ├── creative_event.js
-│   │   │   ├── creative_perf_event.js
-│   │   │   └── creative_quality.js
 │   │   └── mappings/       # Per-table field mappings
-│   │       ├── index.js
-│   │       ├── imp_join_all2.js
-│   │       ├── creative_event.js
-│   │       ├── creative_perf_event.js
-│   │       └── creative_quality.js
 │   ├── css/
 │   │   └── styles.css      # Styling with autocomplete support
 │   └── assets/
 │       └── icon.png        # Extension icon
+├── src-tauri/              # Tauri macOS app
+│   ├── Cargo.toml          # Rust dependencies
+│   ├── tauri.conf.json     # App configuration
+│   ├── src/main.rs         # Entry point
+│   └── icons/              # App icons
+├── dist/                   # Symlinks for Tauri frontend
 ├── spec/                   # Version specification documents
 └── docs/
     └── plans/              # Design documents
@@ -172,6 +170,29 @@ make update-spark-schema
 make generate-schemas
 ```
 
+### macOS App (Tauri)
+
+Prerequisites (one-time setup):
+
+```bash
+mise use rust@latest
+cargo install tauri-cli
+```
+
+Development:
+
+```bash
+make tauri-dev
+```
+
+Production build:
+
+```bash
+make tauri-build
+```
+
+Output: `src-tauri/target/release/bundle/macos/Spark Helper.app`
+
 ### Testing the Extension
 
 1. **Load in Chrome:**
@@ -275,6 +296,7 @@ Add `<option>` to timezone select in `popup.html`. The `QueryBuilder.formatDateT
 - **Binary auto-wrap**: Binary fields automatically wrapped with `BYTES2STR()`
 - **Editable output**: Users can modify generated SQL directly in the output textarea
 - **Time validation**: All modes require time interval before query generation
+- **Dual distribution**: Chrome extension + Tauri macOS app share same frontend code
 
 ## Schema Generation
 

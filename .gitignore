@@ -13,3 +13,6 @@ package-lock.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Tauri
+src-tauri/target/

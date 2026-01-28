@@ -1,10 +1,12 @@
 {
   "name": "spark-helper",
-  "version": "2.0.0",
+  "version": "2.6.0",
   "private": true,
   "description": "Chrome extension for generating Spark SQL queries",
   "scripts": {
-    "generate-schemas": "node scripts/generate-schemas.js"
+    "generate-schemas": "node scripts/generate-schemas.js",
+    "tauri:dev": "cargo tauri dev",
+    "tauri:build": "cargo tauri build"
   },
   "devDependencies": {
     "js-yaml": "^4.1.0"

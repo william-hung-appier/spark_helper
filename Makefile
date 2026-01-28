@@ -1,13 +1,15 @@
 # Spark Helper Makefile
 
-.PHONY: setup update-spark-schema generate-schemas help
+.PHONY: setup update-spark-schema generate-schemas tauri-dev tauri-build help
 
 # Default target
 help:
 	@echo "Spark Helper Commands:"
-	@echo "  make setup              - Initial setup (init submodule and generate schemas)"
+	@echo "  make setup               - Initial setup (init submodule and generate schemas)"
 	@echo "  make update-spark-schema - Update schemas from submodule and regenerate JS"
-	@echo "  make generate-schemas   - Regenerate JS schemas from existing YAML files"
+	@echo "  make generate-schemas    - Regenerate JS schemas from existing YAML files"
+	@echo "  make tauri-dev           - Run macOS app in development mode"
+	@echo "  make tauri-build         - Build macOS app for distribution"
 
 # Initial setup for new clones
 setup:
@@ -33,3 +35,13 @@ generate-schemas:
 	@echo "Generating JS schemas..."
 	node scripts/generate-schemas.js
 	@echo "Done!"
+
+# Run macOS app in development mode
+tauri-dev:
+	cargo tauri dev
+
+# Build macOS app for distribution
+tauri-build:
+	@echo "Building macOS app..."
+	cargo tauri build
+	@echo "Build complete! App at: src-tauri/target/release/bundle/macos/Spark Helper.app"
